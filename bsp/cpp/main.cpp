@@ -2,7 +2,7 @@
 
 int main()
 {
-	pmg::BSP bsp(100, 100, 6, 10, 20);
+	pmg::BSP bsp(100, 100, 4, 10, 20);
 
 	bsp.createMap();
 

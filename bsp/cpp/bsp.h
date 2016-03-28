@@ -119,7 +119,7 @@ public:
 	template<typename RandomGenerator = std::mt19937>
 	void makeRoom(float sizeRange, RandomGenerator& generator)
 	{
-		if (sizeRange < 0.0f || sizeRange > 1.0f)
+		if (sizeRange < 0.0f || sizeRange > 0.1f)
 		{
 			return;
 		}
@@ -138,8 +138,8 @@ public:
 		std::uniform_real_distribution<float> sizeDist(0.9f - sizeRange, 0.9f + sizeRange);
 		int roomWidth = static_cast<int>(sizeDist(generator) * mInfo.mWidth);
 		int roomHeight = static_cast<int>(sizeDist(generator) * mInfo.mHeight);
-		std::uniform_int_distribution<int> xDist(mInfo.mX, mInfo.mX + mInfo.mWidth - roomWidth - 1);
-		std::uniform_int_distribution<int> yDist(mInfo.mY, mInfo.mY + mInfo.mHeight - roomHeight - 1);
+		std::uniform_int_distribution<int> xDist(mInfo.mX, mInfo.mX + mInfo.mWidth - roomWidth);
+		std::uniform_int_distribution<int> yDist(mInfo.mY, mInfo.mY + mInfo.mHeight - roomHeight);
 
 		mRoom.mX = xDist(generator);
 		mRoom.mY = yDist(generator);
@@ -271,7 +271,7 @@ public:
 				else // 3보다 여유가 없는 경우 - 겹치는 범위에서 랜덤.
 				{
 					int start = 0;
-					int end = std::min(left.mY + left.mHeight, right.mY + right.mHeight);
+					int end = std::min(left.mY + left.mHeight - 1, right.mY + right.mHeight - 1);
 
 					if (left.mY >= right.mY && left.mY < right.mY + right.mHeight)
 					{
@@ -282,7 +282,7 @@ public:
 						start = right.mY;
 					}
 
-					std::uniform_int_distribution<int> dist(start, end - 1);
+					std::uniform_int_distribution<int> dist(start, end);
 
 					int y = dist(generator);
 
@@ -298,10 +298,10 @@ public:
 			int leftMax = left.mX + left.mWidth;
 			int rightMin = right.mX;
 			int yStart = std::min(left.mY, right.mY);
-			int yEnd = std::max(left.mY + left.mHeight, right.mY + right.mHeight);
+			int yEnd = std::max(left.mY + left.mHeight - 1, right.mY + right.mHeight - 1);
 
 			//left side가 더 앞
-			if (yStart == left.mY)
+			if (left.mY < right.mY)
 			{
 				for (int l = leftIdx; l < leftCand.size(); l++)
 				{
@@ -368,13 +368,14 @@ public:
 				
 
 				//left side가 더 앞
-				if (yStart == left.mY)
+				if (left.mY < right.mY)
 				{
 					std::uniform_int_distribution<int> startDist(yStart, left.mY + left.mHeight - 1);
 					std::uniform_int_distribution<int> endDist(right.mY, yEnd);
 
 					int start = startDist(generator);
 					int end = endDist(generator);
+					_ASSERT(start <= end);
 
 					for (int l = left.mX + left.mWidth; l < mid; l++)
 					{
@@ -398,6 +399,7 @@ public:
 
 					int start = startDist(generator);
 					int end = endDist(generator);
+					_ASSERT(start <= end);
 
 					for (int r = right.mX - 1; r > mid; r--)
 					{
@@ -455,7 +457,7 @@ public:
 				else // 3보다 여유가 없는 경우 - 겹치는 범위에서 랜덤.
 				{
 					int start = 0;
-					int end = std::min(left.mX + left.mWidth, right.mX + right.mWidth);
+					int end = std::min(left.mX + left.mWidth - 1, right.mX + right.mWidth - 1);
 
 					if (left.mX >= right.mX && left.mX < right.mX + right.mWidth)
 					{
@@ -466,7 +468,7 @@ public:
 						start = right.mX;
 					}
 
-					std::uniform_int_distribution<int> dist(start, end - 1);
+					std::uniform_int_distribution<int> dist(start, end);
 
 					int x = dist(generator);
 
@@ -483,10 +485,10 @@ public:
 			int leftMax = left.mY + left.mHeight;
 			int rightMin = right.mY;
 			int xStart = std::min(left.mX, right.mX);
-			int xEnd = std::max(left.mX + left.mWidth, right.mX + right.mWidth);
+			int xEnd = std::max(left.mX + left.mWidth - 1, right.mX + right.mWidth - 1);
 
 			//left side가 더 앞
-			if (xStart == left.mX)
+			if (left.mX < right.mX)
 			{
 				for (int l = leftIdx; l < leftCand.size(); l++)
 				{
@@ -551,13 +553,14 @@ public:
 			{
 				int mid = (leftMax + rightMin) / 2;
 				//left side가 더 앞
-				if (xStart == left.mX)
+				if (left.mX < right.mX)
 				{
 					std::uniform_int_distribution<int> startDist(xStart, left.mX + left.mWidth - 1);
 					std::uniform_int_distribution<int> endDist(right.mX, xEnd);
 				
 					int start = startDist(generator);
 					int end = endDist(generator);
+					_ASSERT(start <= end);
 
 					for (int l = left.mY + left.mHeight; l < mid; l++)
 					{
@@ -581,6 +584,7 @@ public:
 
 					int start = startDist(generator);
 					int end = endDist(generator);
+					_ASSERT(start <= end);
 
 					for (int r = right.mY - 1; r > mid; r--)
 					{
