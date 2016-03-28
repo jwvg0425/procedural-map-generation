@@ -7,7 +7,7 @@ BSP (Binary Space Partitioning) 알고리즘을 이용한 절차적 맵 생성�
 - C#
 - Haskell
 - Python
-
+- Ruby
 
 ## 결과 테스트
 
