@@ -2,11 +2,24 @@
 
 int main()
 {
-	pmg::BSP generator(100, 100, 6, 5, 10);
+	pmg::BSP generator;
 
 	generator.createMap();
 
-	generator.toTextFile("test.txt");
+	generator.toTextFile("test.txt", [](int data)
+	{
+		switch (static_cast<pmg::TileType>(data))
+		{
+		case pmg::TileType::Hall:
+			return '*';
+		case pmg::TileType::Room:
+			return '.';
+		case pmg::TileType::Wall:
+			return '#';
+		}
+
+		return '?';
+	});
 
 	return 0;
 }

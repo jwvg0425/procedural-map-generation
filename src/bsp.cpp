@@ -1,7 +1,7 @@
 #include "bsp.h"
 #include <fstream>
 
-void pmg::BSP::toTextFile(const std::string& path)
+void pmg::BSP::toTextFile(const std::string& path, std::function<char(int)> outputFunc) const
 {
 	std::ofstream stream(path);
 
@@ -12,18 +12,7 @@ void pmg::BSP::toTextFile(const std::string& path)
 	{
 		for (int x = 0; x < mWidth; x++)
 		{
-			switch(static_cast<TileType>(mData[y*mWidth + x]))
-			{
-			case TileType::Hall:
-				stream << "*";
-				break;
-			case TileType::Room:
-				stream << ".";
-				break;
-			case TileType::Wall:
-				stream << "#";
-				break;
-			}
+			stream << outputFunc(mData[y*mWidth + x]);
 		}
 
 		stream << std::endl;
@@ -57,7 +46,9 @@ void pmg::Leaf::fillData(int width, std::vector<int>& data) const
 	}
 }
 
-bool pmg::Leaf::getXRange(int leftIdx, int rightIdx, const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand, OUT int & start, OUT int & end)
+bool pmg::Leaf::getXRange(int leftIdx, int rightIdx, 
+	const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand, 
+	OUT int & start, OUT int & end) const
 {
 	const Rectangle& left = leftCand.at(leftIdx);
 	const Rectangle& right = rightCand.at(rightIdx);
@@ -125,7 +116,9 @@ bool pmg::Leaf::getXRange(int leftIdx, int rightIdx, const std::vector<Rectangle
 	return true;
 }
 
-bool pmg::Leaf::getYRange(int leftIdx, int rightIdx, const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand, OUT int & start, OUT int & end)
+bool pmg::Leaf::getYRange(int leftIdx, int rightIdx, 
+	const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand, 
+	OUT int & start, OUT int & end) const
 {
 	const Rectangle& left = leftCand.at(leftIdx);
 	const Rectangle& right = rightCand.at(rightIdx);
@@ -193,7 +186,7 @@ bool pmg::Leaf::getYRange(int leftIdx, int rightIdx, const std::vector<Rectangle
 	return true;
 }
 
-void pmg::Leaf::getSideRoom(SideType type, OUT std::vector<Rectangle>& rooms)
+void pmg::Leaf::getSideRoom(SideType type, OUT std::vector<Rectangle>& rooms) const
 {
 	if (!hasChild())
 	{

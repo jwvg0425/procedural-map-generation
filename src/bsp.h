@@ -105,12 +105,11 @@ public:
 		}
 	}
 
-	//리프 노드에 방을 만들어준다. 리프 노드 높이 / 너비의 0.9 +- sizeDist 크기에서 생성. 
-	//sizeDist는 최소 0.0 최대 0.1
+	//리프 노드에 방을 만들어준다. 리프 노드 높이 / 너비의 sizeMid +- sizeDist 크기에서 생성. 
 	template<typename RandomGenerator = std::mt19937>
-	void makeRoom(float sizeRange, RandomGenerator& generator)
+	void makeRoom(float sizeMid, float sizeRange, RandomGenerator& generator)
 	{
-		if (sizeRange < 0.0f || sizeRange > 0.1f)
+		if (sizeMid - sizeRange < 0.0f || sizeMid + sizeRange > 1.0f)
 		{
 			return;
 		}
@@ -118,17 +117,24 @@ public:
 		if (hasChild())
 		{
 			if (mLeftChild != nullptr)
-				mLeftChild->makeRoom(sizeRange, generator);
+				mLeftChild->makeRoom(sizeMid, sizeRange, generator);
 
 			if (mRightChild != nullptr)
-				mRightChild->makeRoom(sizeRange, generator);
+				mRightChild->makeRoom(sizeMid, sizeRange, generator);
 
 			return;
 		}
 
-		std::uniform_real_distribution<float> sizeDist(0.9f - sizeRange, 0.9f + sizeRange);
+		std::uniform_real_distribution<float> sizeDist(sizeMid - sizeRange, sizeMid + sizeRange);
 		int roomWidth = static_cast<int>(sizeDist(generator) * mInfo.mWidth);
 		int roomHeight = static_cast<int>(sizeDist(generator) * mInfo.mHeight);
+
+		if (roomWidth < ROOM_MINIMUM_SIZE)
+			roomWidth = ROOM_MINIMUM_SIZE;
+
+		if (roomHeight < ROOM_MINIMUM_SIZE)
+			roomHeight = ROOM_MINIMUM_SIZE;
+
 		std::uniform_int_distribution<int> xDist(mInfo.mX, mInfo.mX + mInfo.mWidth - roomWidth);
 		std::uniform_int_distribution<int> yDist(mInfo.mY, mInfo.mY + mInfo.mHeight - roomHeight);
 
@@ -282,15 +288,15 @@ private:
 
 	bool getXRange(int leftIdx, int rightIdx,
 		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
-		OUT int& start, OUT int& end);
+		OUT int& start, OUT int& end) const;
 
 	bool getYRange(int leftIdx, int rightIdx,
 		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
-		OUT int& start, OUT int& end);
+		OUT int& start, OUT int& end) const;
 
-	void getSideRoom(SideType type, OUT std::vector<Rectangle>& rooms);
+	void getSideRoom(SideType type, OUT std::vector<Rectangle>& rooms) const;
 
-	//너비 분할. 분할 후 너비가 MINIMUM_SIZE 보다 작은 부분이 존재할 경우 false 리턴.
+	//너비 분할. 분할 후 너비가 LEAF_MINIMUM_SIZE 보다 작은 부분이 존재할 경우 false 리턴.
 	template<typename RandomGenerator = std::mt19937>
 	bool widthSplit(float splitRange, RandomGenerator& generator)
 	{
@@ -299,7 +305,7 @@ private:
 		int leftWidth = static_cast<int>(rangeDist(generator) * mInfo.mWidth);
 		int rightWidth = mInfo.mWidth - leftWidth;
 
-		if (leftWidth < MINIMUM_SIZE || rightWidth < MINIMUM_SIZE)
+		if (leftWidth < LEAF_MINIMUM_SIZE || rightWidth < LEAF_MINIMUM_SIZE)
 			return false;
 
 		mLeftChild.reset(new Leaf(mInfo.mX, mInfo.mY, leftWidth, mInfo.mHeight));
@@ -309,7 +315,7 @@ private:
 		return true;
 	}
 
-	//높이 분할. 분할 후 너비가 MINIMUM_SIZE보다 작은 부분이 존재할 경우 false 리턴.
+	//높이 분할. 분할 후 너비가 LEAF_MINIMUM_SIZE보다 작은 부분이 존재할 경우 false 리턴.
 	template<typename RandomGenerator = std::mt19937>
 	bool heightSplit(float splitRange, RandomGenerator& generator)
 	{
@@ -318,7 +324,7 @@ private:
 		int topHeight = static_cast<int>(rangeDist(generator) * mInfo.mHeight);
 		int bottomHeight = mInfo.mHeight - topHeight;
 
-		if (topHeight < MINIMUM_SIZE || bottomHeight < MINIMUM_SIZE)
+		if (topHeight < LEAF_MINIMUM_SIZE || bottomHeight < LEAF_MINIMUM_SIZE)
 			return false;
 
 		mLeftChild.reset(new Leaf(mInfo.mX, mInfo.mY, mInfo.mWidth, topHeight));
@@ -717,7 +723,8 @@ private:
 		return true;
 	}
 
-	const int MINIMUM_SIZE = 10;
+	const int LEAF_MINIMUM_SIZE = 10;
+	const int ROOM_MINIMUM_SIZE = 3;
 
 	std::vector<Point> hallways;
 	Rectangle mInfo;
@@ -730,10 +737,16 @@ private:
 class BSP
 {
 public:
-	BSP(int width, int height, int splitNum, int sizeRange, int splitRange)
+	BSP()
+		:mRoot(0, 0, mWidth, mHeight)
+	{
+		mData.resize(mWidth * mHeight, static_cast<int>(TileType::Wall));
+	}
+
+	BSP(int width, int height, int splitNum, float splitRange, float sizeMid, float sizeRange)
 		: mWidth(width), mHeight(height), 
-		mSplitNum(splitNum), mSplitRange(static_cast<float>(splitRange) / 100.0f), 
-		mSizeRange(static_cast<float>(sizeRange) / 100.0f),
+		mSplitNum(splitNum), mSplitRange(splitRange), 
+		mSizeMid(sizeMid), mSizeRange(sizeRange),
 		mRoot(0, 0, width, height),
 		mData()
 	{
@@ -747,12 +760,12 @@ public:
 		RandomGenerator generator(rd());
 
 		split(generator);
-		mRoot.makeRoom(mSizeRange, generator);
+		mRoot.makeRoom(mSizeMid, mSizeRange, generator);
 		mRoot.merge(generator);
 		mRoot.fillData(mWidth, mData);
 	}
 
-	void toTextFile(const std::string& path);
+	void toTextFile(const std::string& path, std::function<char(int)> outputFunc) const;
 
 private:
 
@@ -784,11 +797,12 @@ private:
 		}
 	}
 
-	int mWidth;
-	int mHeight;
-	int mSplitNum;
-	float  mSplitRange;
-	float mSizeRange;
+	int mWidth = 100;
+	int mHeight = 100;
+	int mSplitNum = 6;
+	float mSplitRange = 0.2f;
+	float mSizeMid = 0.6f;
+	float mSizeRange = 0.2f;
 	Leaf mRoot;
 	std::vector<int> mData;
 };
