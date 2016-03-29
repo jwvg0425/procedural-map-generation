@@ -239,187 +239,14 @@ public:
 			//case 1 : 서로 축에서 겹치는 게 있는 경우.
 			//이 경우 반드시 연결 가능. 연결한다.
 			//방이 연결되는 경우 때문에 양 끝 점은 제외한다. 그래서 끝 쪽에서 겹칠 경우 약간 더 공간 필요.
-			if ((left.mY >= right.mY && left.mY < right.mY + right.mHeight - 2) ||
-				(right.mY >= left.mY && right.mY < left.mY + left.mHeight - 2))
+			if (widthOverlapConnect(leftIdx, rightIdx, leftCand, rightCand, generator))
 			{
-				//y 공간이 3 이상 여유가 있는 경우 - 완전 랜덤 범위.
-				if (right.mX - (left.mX + left.mWidth) >= 3)
-				{
-					std::uniform_int_distribution<int> leftDist(left.mY + 1, left.mY + left.mHeight - 2);
-					std::uniform_int_distribution<int> rightDist(right.mY + 1, right.mY + right.mHeight - 2);
-
-					int leftStart = leftDist(generator);
-					int rightStart = rightDist(generator);
-					int mid = (left.mX + left.mWidth + right.mX) / 2;
-
-					for (int l = left.mX + left.mWidth; l < mid; l++)
-					{
-						hallways.emplace_back(l, leftStart);
-					}
-					for (int r = right.mX - 1; r > mid; r--)
-					{
-						hallways.emplace_back(r, rightStart);
-					}
-
-					int midStart = std::min(leftStart, rightStart);
-					int midEnd = std::max(leftStart, rightStart);
-
-					for (int m = midStart; m <= midEnd; m++)
-					{
-						hallways.emplace_back(mid, m);
-					}
-				}
-				else // 3보다 여유가 없는 경우 - 겹치는 범위에서 랜덤.
-				{
-					int start = 0;
-					int end = std::min(left.mY + left.mHeight - 2, right.mY + right.mHeight - 2);
-
-					if (left.mY >= right.mY && left.mY < right.mY + right.mHeight)
-					{
-						start = left.mY + 1;
-					}
-					else
-					{
-						start = right.mY + 1;
-					}
-
-					_ASSERT(start <= end);
-
-					std::uniform_int_distribution<int> dist(start, end);
-
-					int y = dist(generator);
-
-					for (int x = left.mX + left.mWidth; x < right.mX; x++)
-					{
-						hallways.emplace_back(x, y);
-					}
-				}
-				
 				return true;
 			}
+
 			//case 2 : left 맨 끝과 right 맨 끝 사이 간격이 3 이상인 경우. 이 경우도 반드시 연결 가능.
-			int leftMax = left.mX + left.mWidth;
-			int rightMin = right.mX;
-			int yStart = std::min(left.mY + 1, right.mY + 1);
-			int yEnd = std::max(left.mY + left.mHeight - 2, right.mY + right.mHeight - 2);
-
-			//left side가 더 앞
-			if (left.mY < right.mY)
+			if (widthSeparateConnect(leftIdx, rightIdx, leftCand, rightCand, generator))
 			{
-				for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
-				{
-					if (leftCand[l].mY > right.mY + 2)
-					{
-						yEnd = std::min(yEnd, leftCand[l].mY);
-						break;
-					}
-
-					if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
-					{
-						leftMax = leftCand[l].mX + leftCand[l].mWidth;
-					}
-				}
-
-				for (int r = rightIdx; r >= 0; r--)
-				{
-					if (rightCand[r].mY + rightCand[r].mHeight < left.mY + left.mHeight - 2)
-					{
-						yStart = std::max(yStart, rightCand[r].mY + rightCand[r].mHeight - 1);
-						break;
-					}
-
-					if (rightCand[r].mX < rightMin)
-					{
-						rightMin = rightCand[r].mX;
-					}
-				}
-			}
-			else
-			{
-				for (int l = leftIdx; l >= 0; l--)
-				{
-					if (leftCand[l].mY + leftCand[l].mHeight < right.mY + right.mHeight - 2)
-					{
-						yStart = std::max(yStart, leftCand[l].mY + leftCand[l].mHeight - 1);
-						break;
-					}
-					
-					if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
-					{
-						leftMax = leftCand[l].mX + leftCand[l].mWidth;
-					}
-				}
-
-				for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
-				{
-					if (rightCand[r].mY > left.mY + 2)
-					{
-						yEnd = std::min(yEnd, rightCand[r].mY);
-						break;
-					}
-
-					if (rightCand[r].mX < rightMin)
-					{
-						rightMin = rightCand[r].mX;
-					}
-				}
-			}
-
-			if (rightMin - leftMax >= 3)
-			{
-				int mid = (leftMax + rightMin) / 2;
-				
-
-				//left side가 더 앞
-				if (left.mY < right.mY)
-				{
-					std::uniform_int_distribution<int> startDist(yStart, left.mY + left.mHeight - 2);
-					std::uniform_int_distribution<int> endDist(right.mY + 1, yEnd);
-
-					int start = startDist(generator);
-					int end = endDist(generator);
-					_ASSERT(start <= end);
-
-					for (int l = left.mX + left.mWidth; l < mid; l++)
-					{
-						hallways.emplace_back(l, start);
-					}
-
-					for (int r = right.mX - 1; r > mid; r--)
-					{
-						hallways.emplace_back(r, end);
-					}
-
-					for (int y = start; y <= end; y++)
-					{
-						hallways.emplace_back(mid, y);
-					}
-				}
-				else
-				{
-					std::uniform_int_distribution<int> startDist(yStart, right.mY + right.mHeight - 2);
-					std::uniform_int_distribution<int> endDist(left.mY + 1, yEnd);
-
-					int start = startDist(generator);
-					int end = endDist(generator);
-					_ASSERT(start <= end);
-
-					for (int r = right.mX - 1; r > mid; r--)
-					{
-						hallways.emplace_back(r, start);
-					}
-
-					for (int l = left.mX + left.mWidth; l < mid; l++)
-					{
-						hallways.emplace_back(l, end);
-					}
-
-					for (int y = start; y <= end; y++)
-					{
-						hallways.emplace_back(mid, y);
-					}
-				}
-
 				return true;
 			}
 		}
@@ -427,186 +254,15 @@ public:
 		{
 			//case 1 : 서로 축에서 겹치는 게 있는 경우.
 			//이 경우 반드시 연결 가능. 연결한다.
-			if ((left.mX >= right.mX && left.mX < right.mX + right.mWidth - 2) ||
-				(right.mX >= left.mX && right.mX < left.mX + left.mWidth - 2))
+			//방이 연결되는 경우 때문에 양 끝 점은 제외한다. 그래서 끝 쪽에서 겹칠 경우 약간 더 공간 필요.
+			if (heightOverlapConnect(leftIdx, rightIdx, leftCand, rightCand, generator))
 			{
-				//y 공간이 3 이상 여유가 있는 경우 - 완전 랜덤 범위.
-				if (right.mY - (left.mY + left.mHeight) >= 3)
-				{
-					std::uniform_int_distribution<int> leftDist(left.mX + 1, left.mX + left.mWidth - 2);
-					std::uniform_int_distribution<int> rightDist(right.mX + 1, right.mX + right.mWidth - 2);
-
-					int leftStart = leftDist(generator);
-					int rightStart = rightDist(generator);
-					int mid = (left.mY + left.mHeight + right.mY) / 2;
-
-					for (int l = left.mY + left.mHeight; l < mid; l++)
-					{
-						hallways.emplace_back(leftStart, l);
-					}
-					for (int r = right.mY - 1; r > mid; r--)
-					{
-						hallways.emplace_back(rightStart, r);
-					}
-
-					int midStart = std::min(leftStart, rightStart);
-					int midEnd = std::max(leftStart, rightStart);
-
-					for (int m = midStart; m <= midEnd; m++)
-					{
-						hallways.emplace_back(m, mid);
-					}
-				}
-				else // 3보다 여유가 없는 경우 - 겹치는 범위에서 랜덤.
-				{
-					int start = 0;
-					int end = std::min(left.mX + left.mWidth - 2, right.mX + right.mWidth - 2);
-
-					if (left.mX >= right.mX && left.mX < right.mX + right.mWidth)
-					{
-						start = left.mX + 1;
-					}
-					else
-					{
-						start = right.mX + 1;
-					}
-
-					_ASSERT(start <= end);
-
-					std::uniform_int_distribution<int> dist(start, end);
-
-					int x = dist(generator);
-
-					for (int y = left.mY + left.mHeight; y < right.mY; y++)
-					{
-						hallways.emplace_back(x, y);
-					}
-				}
-
 				return true;
 			}
 
 			//case 2 : left 맨 끝과 right 맨 끝 사이 간격이 3 이상인 경우. 이 경우도 반드시 연결 가능.
-			int leftMax = left.mY + left.mHeight;
-			int rightMin = right.mY;
-			int xStart = std::min(left.mX + 1, right.mX + 1);
-			int xEnd = std::max(left.mX + left.mWidth - 2, right.mX + right.mWidth - 2);
-
-			//left side가 더 앞
-			if (left.mX < right.mX)
+			if (heightSeparateConnect(leftIdx, rightIdx, leftCand, rightCand, generator))
 			{
-				for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
-				{
-					if (leftCand[l].mX > right.mX + 2)
-					{
-						xEnd = std::min(xEnd, leftCand[l].mX);
-						break;
-					}
-
-					if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
-					{
-						leftMax = leftCand[l].mY + leftCand[l].mHeight;
-					}
-				}
-
-				for (int r = rightIdx; r >= 0; r--)
-				{
-					if (rightCand[r].mX + rightCand[r].mWidth < left.mX + left.mWidth - 2)
-					{
-						xStart = std::max(xStart, rightCand[r].mX + rightCand[r].mWidth - 1);
-						break;
-					}
-
-					if (rightCand[r].mY < rightMin)
-					{
-						rightMin = rightCand[r].mY;
-					}
-				}
-			}
-			else
-			{
-				for (int l = leftIdx; l >= 0; l--)
-				{
-					if (leftCand[l].mX + leftCand[l].mWidth < right.mX + right.mWidth - 2)
-					{
-						xStart = std::max(xStart, leftCand[l].mX + leftCand[l].mWidth - 1);
-						break;
-					}
-
-					if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
-					{
-						leftMax = leftCand[l].mY + leftCand[l].mHeight;
-					}
-				}
-
-				for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
-				{
-					if (rightCand[r].mX > left.mX + 2)
-					{
-						xEnd = std::min(xEnd, rightCand[r].mX);
-						break;
-					}
-
-					if (rightCand[r].mY < rightMin)
-					{
-						rightMin = rightCand[r].mY;
-					}
-				}
-			}
-
-			if (rightMin - leftMax >= 3)
-			{
-				int mid = (leftMax + rightMin) / 2;
-				//left side가 더 앞
-				if (left.mX < right.mX)
-				{
-					std::uniform_int_distribution<int> startDist(xStart, left.mX + left.mWidth - 2);
-					std::uniform_int_distribution<int> endDist(right.mX + 1, xEnd);
-				
-					int start = startDist(generator);
-					int end = endDist(generator);
-					_ASSERT(start <= end);
-
-					for (int l = left.mY + left.mHeight; l < mid; l++)
-					{
-						hallways.emplace_back(start, l);
-					}
-
-					for (int r = right.mY - 1; r > mid; r--)
-					{
-						hallways.emplace_back(end, r);
-					}
-
-					for (int x = start; x <= end; x++)
-					{
-						hallways.emplace_back(x, mid);
-					}
-				}
-				else
-				{
-					std::uniform_int_distribution<int> startDist(xStart, right.mX + right.mWidth - 2);
-					std::uniform_int_distribution<int> endDist(left.mX + 1, xEnd);
-
-					int start = startDist(generator);
-					int end = endDist(generator);
-					_ASSERT(start <= end);
-
-					for (int r = right.mY - 1; r > mid; r--)
-					{
-						hallways.emplace_back(start, r);
-					}
-
-					for (int l = left.mY + left.mHeight; l < mid; l++)
-					{
-						hallways.emplace_back(end, l);
-					}
-
-					for (int x = start; x <= end; x++)
-					{
-						hallways.emplace_back(x, mid);
-					}
-				}
-
 				return true;
 			}
 		}
@@ -727,6 +383,417 @@ private:
 		mLeftChild.reset(new Leaf(mInfo.mX, mInfo.mY, mInfo.mWidth, topHeight));
 		mRightChild.reset(new Leaf(mInfo.mX, mInfo.mY + topHeight, mInfo.mWidth, bottomHeight));
 		mIsWidthSplit = false;
+
+		return true;
+	}
+
+	template<typename RandomGenerator>
+	bool widthOverlapConnect(int leftIdx, int rightIdx,
+		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
+		RandomGenerator& generator)
+	{
+		const Rectangle& left = leftCand.at(leftIdx);
+		const Rectangle& right = rightCand.at(rightIdx);
+
+		if ((left.mY < right.mY || left.mY >= right.mY + right.mHeight - 2) &&
+			(right.mY < left.mY || right.mY >= left.mY + left.mHeight - 2))
+		{
+			return false;
+		}
+
+		//y 공간이 3 이상 여유가 있는 경우 - 완전 랜덤 범위.
+		if (right.mX - (left.mX + left.mWidth) >= 3)
+		{
+			std::uniform_int_distribution<int> leftDist(left.mY + 1, left.mY + left.mHeight - 2);
+			std::uniform_int_distribution<int> rightDist(right.mY + 1, right.mY + right.mHeight - 2);
+
+			int leftStart = leftDist(generator);
+			int rightStart = rightDist(generator);
+			int mid = (left.mX + left.mWidth + right.mX) / 2;
+
+			for (int l = left.mX + left.mWidth; l < mid; l++)
+			{
+				hallways.emplace_back(l, leftStart);
+			}
+			for (int r = right.mX - 1; r > mid; r--)
+			{
+				hallways.emplace_back(r, rightStart);
+			}
+
+			int midStart = std::min(leftStart, rightStart);
+			int midEnd = std::max(leftStart, rightStart);
+
+			for (int m = midStart; m <= midEnd; m++)
+			{
+				hallways.emplace_back(mid, m);
+			}
+		}
+		else // 3보다 여유가 없는 경우 - 겹치는 범위에서 랜덤.
+		{
+			int start = 0;
+			int end = std::min(left.mY + left.mHeight - 2, right.mY + right.mHeight - 2);
+
+			if (left.mY >= right.mY && left.mY < right.mY + right.mHeight)
+			{
+				start = left.mY + 1;
+			}
+			else
+			{
+				start = right.mY + 1;
+			}
+
+			_ASSERT(start <= end);
+
+			std::uniform_int_distribution<int> dist(start, end);
+
+			int y = dist(generator);
+
+			for (int x = left.mX + left.mWidth; x < right.mX; x++)
+			{
+				hallways.emplace_back(x, y);
+			}
+		}
+
+		return true;
+	}
+
+	template<typename RandomGenerator>
+	bool heightOverlapConnect(int leftIdx, int rightIdx,
+		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
+		RandomGenerator& generator)
+	{
+		const Rectangle& left = leftCand.at(leftIdx);
+		const Rectangle& right = rightCand.at(rightIdx);
+
+		if ((left.mX < right.mX || left.mX >= right.mX + right.mWidth - 2) &&
+			(right.mX < left.mX || right.mX >= left.mX + left.mWidth - 2))
+		{
+			return false;
+		}
+
+		//y 공간이 3 이상 여유가 있는 경우 - 완전 랜덤 범위.
+		if (right.mY - (left.mY + left.mHeight) >= 3)
+		{
+			std::uniform_int_distribution<int> leftDist(left.mX + 1, left.mX + left.mWidth - 2);
+			std::uniform_int_distribution<int> rightDist(right.mX + 1, right.mX + right.mWidth - 2);
+
+			int leftStart = leftDist(generator);
+			int rightStart = rightDist(generator);
+			int mid = (left.mY + left.mHeight + right.mY) / 2;
+
+			for (int l = left.mY + left.mHeight; l < mid; l++)
+			{
+				hallways.emplace_back(leftStart, l);
+			}
+			for (int r = right.mY - 1; r > mid; r--)
+			{
+				hallways.emplace_back(rightStart, r);
+			}
+
+			int midStart = std::min(leftStart, rightStart);
+			int midEnd = std::max(leftStart, rightStart);
+
+			for (int m = midStart; m <= midEnd; m++)
+			{
+				hallways.emplace_back(m, mid);
+			}
+		}
+		else // 3보다 여유가 없는 경우 - 겹치는 범위에서 랜덤.
+		{
+			int start = 0;
+			int end = std::min(left.mX + left.mWidth - 2, right.mX + right.mWidth - 2);
+
+			if (left.mX >= right.mX && left.mX < right.mX + right.mWidth)
+			{
+				start = left.mX + 1;
+			}
+			else
+			{
+				start = right.mX + 1;
+			}
+
+			_ASSERT(start <= end);
+
+			std::uniform_int_distribution<int> dist(start, end);
+
+			int x = dist(generator);
+
+			for (int y = left.mY + left.mHeight; y < right.mY; y++)
+			{
+				hallways.emplace_back(x, y);
+			}
+		}
+
+		return true;
+	}
+
+	template<typename RandomGenerator>
+	bool widthSeparateConnect(int leftIdx, int rightIdx,
+		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
+		RandomGenerator& generator)
+	{
+		const Rectangle& left = leftCand.at(leftIdx);
+		const Rectangle& right = rightCand.at(rightIdx);
+
+		int leftMax = left.mX + left.mWidth;
+		int rightMin = right.mX;
+		int yStart = std::min(left.mY + 1, right.mY + 1);
+		int yEnd = std::max(left.mY + left.mHeight - 2, right.mY + right.mHeight - 2);
+
+		//left side가 더 앞
+		if (left.mY < right.mY)
+		{
+			for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
+			{
+				if (leftCand[l].mY > right.mY + 2)
+				{
+					yEnd = std::min(yEnd, leftCand[l].mY);
+					break;
+				}
+
+				if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
+				{
+					leftMax = leftCand[l].mX + leftCand[l].mWidth;
+				}
+			}
+
+			for (int r = rightIdx; r >= 0; r--)
+			{
+				if (rightCand[r].mY + rightCand[r].mHeight < left.mY + left.mHeight - 2)
+				{
+					yStart = std::max(yStart, rightCand[r].mY + rightCand[r].mHeight - 1);
+					break;
+				}
+
+				if (rightCand[r].mX < rightMin)
+				{
+					rightMin = rightCand[r].mX;
+				}
+			}
+		}
+		else
+		{
+			for (int l = leftIdx; l >= 0; l--)
+			{
+				if (leftCand[l].mY + leftCand[l].mHeight < right.mY + right.mHeight - 2)
+				{
+					yStart = std::max(yStart, leftCand[l].mY + leftCand[l].mHeight - 1);
+					break;
+				}
+
+				if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
+				{
+					leftMax = leftCand[l].mX + leftCand[l].mWidth;
+				}
+			}
+
+			for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
+			{
+				if (rightCand[r].mY > left.mY + 2)
+				{
+					yEnd = std::min(yEnd, rightCand[r].mY);
+					break;
+				}
+
+				if (rightCand[r].mX < rightMin)
+				{
+					rightMin = rightCand[r].mX;
+				}
+			}
+		}
+
+		//공간 부족
+		if (rightMin - leftMax < 3)
+		{
+			return false;
+		}
+
+		int mid = (leftMax + rightMin) / 2;
+
+		//left side가 더 앞
+		if (left.mY < right.mY)
+		{
+			std::uniform_int_distribution<int> startDist(yStart, left.mY + left.mHeight - 2);
+			std::uniform_int_distribution<int> endDist(right.mY + 1, yEnd);
+
+			int start = startDist(generator);
+			int end = endDist(generator);
+			_ASSERT(start <= end);
+
+			for (int l = left.mX + left.mWidth; l < mid; l++)
+			{
+				hallways.emplace_back(l, start);
+			}
+
+			for (int r = right.mX - 1; r > mid; r--)
+			{
+				hallways.emplace_back(r, end);
+			}
+
+			for (int y = start; y <= end; y++)
+			{
+				hallways.emplace_back(mid, y);
+			}
+		}
+		else
+		{
+			std::uniform_int_distribution<int> startDist(yStart, right.mY + right.mHeight - 2);
+			std::uniform_int_distribution<int> endDist(left.mY + 1, yEnd);
+
+			int start = startDist(generator);
+			int end = endDist(generator);
+			_ASSERT(start <= end);
+
+			for (int r = right.mX - 1; r > mid; r--)
+			{
+				hallways.emplace_back(r, start);
+			}
+
+			for (int l = left.mX + left.mWidth; l < mid; l++)
+			{
+				hallways.emplace_back(l, end);
+			}
+
+			for (int y = start; y <= end; y++)
+			{
+				hallways.emplace_back(mid, y);
+			}
+		}
+
+		return true;
+	}
+
+	template<typename RandomGenerator>
+	bool heightSeparateConnect(int leftIdx, int rightIdx,
+		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
+		RandomGenerator& generator)
+	{
+		const Rectangle& left = leftCand.at(leftIdx);
+		const Rectangle& right = rightCand.at(rightIdx);
+
+		int leftMax = left.mY + left.mHeight;
+		int rightMin = right.mY;
+		int xStart = std::min(left.mX + 1, right.mX + 1);
+		int xEnd = std::max(left.mX + left.mWidth - 2, right.mX + right.mWidth - 2);
+
+		//left side가 더 앞
+		if (left.mX < right.mX)
+		{
+			for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
+			{
+				if (leftCand[l].mX > right.mX + 2)
+				{
+					xEnd = std::min(xEnd, leftCand[l].mX);
+					break;
+				}
+
+				if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
+				{
+					leftMax = leftCand[l].mY + leftCand[l].mHeight;
+				}
+			}
+
+			for (int r = rightIdx; r >= 0; r--)
+			{
+				if (rightCand[r].mX + rightCand[r].mWidth < left.mX + left.mWidth - 2)
+				{
+					xStart = std::max(xStart, rightCand[r].mX + rightCand[r].mWidth - 1);
+					break;
+				}
+
+				if (rightCand[r].mY < rightMin)
+				{
+					rightMin = rightCand[r].mY;
+				}
+			}
+		}
+		else
+		{
+			for (int l = leftIdx; l >= 0; l--)
+			{
+				if (leftCand[l].mX + leftCand[l].mWidth < right.mX + right.mWidth - 2)
+				{
+					xStart = std::max(xStart, leftCand[l].mX + leftCand[l].mWidth - 1);
+					break;
+				}
+
+				if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
+				{
+					leftMax = leftCand[l].mY + leftCand[l].mHeight;
+				}
+			}
+
+			for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
+			{
+				if (rightCand[r].mX > left.mX + 2)
+				{
+					xEnd = std::min(xEnd, rightCand[r].mX);
+					break;
+				}
+
+				if (rightCand[r].mY < rightMin)
+				{
+					rightMin = rightCand[r].mY;
+				}
+			}
+		}
+
+		//공간 부족
+		if (rightMin - leftMax < 3)
+		{
+			return false;
+		}
+
+		int mid = (leftMax + rightMin) / 2;
+		//left side가 더 앞
+		if (left.mX < right.mX)
+		{
+			std::uniform_int_distribution<int> startDist(xStart, left.mX + left.mWidth - 2);
+			std::uniform_int_distribution<int> endDist(right.mX + 1, xEnd);
+
+			int start = startDist(generator);
+			int end = endDist(generator);
+			_ASSERT(start <= end);
+
+			for (int l = left.mY + left.mHeight; l < mid; l++)
+			{
+				hallways.emplace_back(start, l);
+			}
+
+			for (int r = right.mY - 1; r > mid; r--)
+			{
+				hallways.emplace_back(end, r);
+			}
+
+			for (int x = start; x <= end; x++)
+			{
+				hallways.emplace_back(x, mid);
+			}
+		}
+		else
+		{
+			std::uniform_int_distribution<int> startDist(xStart, right.mX + right.mWidth - 2);
+			std::uniform_int_distribution<int> endDist(left.mX + 1, xEnd);
+
+			int start = startDist(generator);
+			int end = endDist(generator);
+			_ASSERT(start <= end);
+
+			for (int r = right.mY - 1; r > mid; r--)
+			{
+				hallways.emplace_back(start, r);
+			}
+
+			for (int l = left.mY + left.mHeight; l < mid; l++)
+			{
+				hallways.emplace_back(end, l);
+			}
+
+			for (int x = start; x <= end; x++)
+			{
+				hallways.emplace_back(x, mid);
+			}
+		}
 
 		return true;
 	}
