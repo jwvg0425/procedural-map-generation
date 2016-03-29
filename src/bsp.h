@@ -726,6 +726,7 @@ private:
 		int leftMax = left.mX + left.mWidth;
 		int rightMin = right.mX;
 		int yStart, yEnd;
+		int dl, dr;
 
 		if (!getYRange(leftIdx, rightIdx, leftCand, rightCand, yStart, yEnd))
 			return false;
@@ -733,38 +734,28 @@ private:
 		//left side가 더 앞
 		if (left.mY < right.mY)
 		{
-			for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
-			{
-				if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
-				{
-					leftMax = leftCand[l].mX + leftCand[l].mWidth;
-				}
-			}
-
-			for (int r = rightIdx; r >= 0; r--)
-			{
-				if (rightCand[r].mX < rightMin)
-				{
-					rightMin = rightCand[r].mX;
-				}
-			}
+			dl = 1;
+			dr = -1;
 		}
 		else
 		{
-			for (int l = leftIdx; l >= 0; l--)
-			{
-				if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
-				{
-					leftMax = leftCand[l].mX + leftCand[l].mWidth;
-				}
-			}
+			dl = -1;
+			dr = 1;
+		}
 
-			for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
+		for (int l = leftIdx; l >= 0 && l < static_cast<int>(leftCand.size()); l+= dl)
+		{
+			if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
 			{
-				if (rightCand[r].mX < rightMin)
-				{
-					rightMin = rightCand[r].mX;
-				}
+				leftMax = leftCand[l].mX + leftCand[l].mWidth;
+			}
+		}
+
+		for (int r = rightIdx; r >= 0 && r < static_cast<int>(rightCand.size()); r+= dr)
+		{
+			if (rightCand[r].mX < rightMin)
+			{
+				rightMin = rightCand[r].mX;
 			}
 		}
 
@@ -840,6 +831,7 @@ private:
 		int leftMax = left.mY + left.mHeight;
 		int rightMin = right.mY;
 		int xStart, xEnd;
+		int dl, dr;
 
 		if (!getXRange(leftIdx, rightIdx, leftCand, rightCand, xStart, xEnd))
 			return false;
@@ -847,38 +839,28 @@ private:
 		//left side가 더 앞
 		if (left.mX < right.mX)
 		{
-			for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
-			{
-				if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
-				{
-					leftMax = leftCand[l].mY + leftCand[l].mHeight;
-				}
-			}
-
-			for (int r = rightIdx; r >= 0; r--)
-			{
-				if (rightCand[r].mY < rightMin)
-				{
-					rightMin = rightCand[r].mY;
-				}
-			}
+			dl = 1;
+			dr = -1;
 		}
 		else
 		{
-			for (int l = leftIdx; l >= 0; l--)
-			{
-				if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
-				{
-					leftMax = leftCand[l].mY + leftCand[l].mHeight;
-				}
-			}
+			dl = -1;
+			dr = 1;
+		}
 
-			for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
+		for (int l = leftIdx; l >= 0 && l < static_cast<int>(leftCand.size()); l+= dl)
+		{
+			if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
 			{
-				if (rightCand[r].mY < rightMin)
-				{
-					rightMin = rightCand[r].mY;
-				}
+				leftMax = leftCand[l].mY + leftCand[l].mHeight;
+			}
+		}
+
+		for (int r = rightIdx; r >= 0 && r < static_cast<int>(rightCand.size()); r+= dr)
+		{
+			if (rightCand[r].mY < rightMin)
+			{
+				rightMin = rightCand[r].mY;
 			}
 		}
 
