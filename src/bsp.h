@@ -320,6 +320,146 @@ public:
 
 private:
 
+	bool getXRange(int leftIdx, int rightIdx,
+		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
+		OUT int& start, OUT int& end)
+	{
+		const Rectangle& left = leftCand.at(leftIdx);
+		const Rectangle& right = rightCand.at(rightIdx);
+
+		int xStart = std::min(left.mX + 1, right.mX + 1);
+		int xEnd = std::max(left.mX + left.mWidth - 2, right.mX + right.mWidth - 2);
+
+		//left side가 더 앞
+		if (left.mX < right.mX)
+		{
+			for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
+			{
+				if (leftCand[l].mX > right.mX + 2)
+				{
+					xEnd = std::min(xEnd, leftCand[l].mX - 2);
+					break;
+				}
+			}
+
+			for (int r = rightIdx; r >= 0; r--)
+			{
+				if (rightCand[r].mX + rightCand[r].mWidth < left.mX + left.mWidth - 2)
+				{
+					xStart = std::max(xStart, rightCand[r].mX + rightCand[r].mWidth + 3);
+					break;
+				}
+			}
+
+			if (xStart > left.mX + left.mWidth - 2 ||
+				right.mX + 1 > xEnd)
+			{
+				return false;
+			}
+		}
+		else
+		{
+			for (int l = leftIdx; l >= 0; l--)
+			{
+				if (leftCand[l].mX + leftCand[l].mWidth < right.mX + right.mWidth - 2)
+				{
+					xStart = std::max(xStart, leftCand[l].mX + leftCand[l].mWidth + 3);
+					break;
+				}
+
+				for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
+				{
+					if (rightCand[r].mX > left.mX + 2)
+					{
+						xEnd = std::min(xEnd, rightCand[r].mX - 2);
+						break;
+					}
+				}
+			}
+
+			if (xStart > right.mX + right.mWidth - 2 ||
+				left.mX + 1 > xEnd)
+			{
+				return false;
+			}
+		}
+
+		start = xStart;
+		end = xEnd;
+
+		return true;
+	}
+
+	bool getYRange(int leftIdx, int rightIdx,
+		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
+		OUT int& start, OUT int& end)
+	{
+		const Rectangle& left = leftCand.at(leftIdx);
+		const Rectangle& right = rightCand.at(rightIdx);
+
+		int yStart = std::min(left.mY + 1, right.mY + 1);
+		int yEnd = std::max(left.mY + left.mHeight - 2, right.mY + right.mHeight - 2);
+
+		//left side가 더 앞
+		if (left.mY < right.mY)
+		{
+			for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
+			{
+				if (leftCand[l].mY > right.mY + 2)
+				{
+					yEnd = std::min(yEnd, leftCand[l].mY - 2);
+					break;
+				}
+			}
+
+			for (int r = rightIdx; r >= 0; r--)
+			{
+				if (rightCand[r].mY + rightCand[r].mHeight < left.mY + left.mHeight - 2)
+				{
+					yStart = std::max(yStart, rightCand[r].mY + rightCand[r].mHeight + 3);
+					break;
+				}
+			}
+
+			if (yStart > left.mY + left.mHeight - 2 ||
+				right.mY + 1 > yEnd)
+			{
+				return false;
+			}
+		}
+		else
+		{
+			for (int l = leftIdx; l >= 0; l--)
+			{
+				if (leftCand[l].mY + leftCand[l].mHeight < right.mY + right.mHeight - 2)
+				{
+					yStart = std::max(yStart, leftCand[l].mY + leftCand[l].mHeight + 3);
+					break;
+				}
+			}
+
+			for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
+			{
+				if (rightCand[r].mY > left.mY + 2)
+				{
+					yEnd = std::min(yEnd, rightCand[r].mY - 2);
+					break;
+				}
+			}
+
+			if (left.mY + 1 > yEnd ||
+				yStart > right.mY + right.mHeight - 2)
+			{
+				return false;
+			}
+		}
+
+		start = yStart;
+		end = yEnd;
+
+		return true;
+	}
+
 	void getSideRoom(SideType type, OUT std::vector<Rectangle>& rooms)
 	{
 		if (!hasChild())
@@ -412,38 +552,16 @@ private:
 		//y 공간이 3 이상 여유가 있는 경우 - 완전 랜덤 범위.
 		if (right.mX - (left.mX + left.mWidth) >= 3)
 		{
-			int yStart = std::min(left.mY + 1, right.mY + 1);
-			int yEnd = std::max(left.mY + left.mHeight - 2, right.mY + right.mHeight - 2);
 			int leftStart = 0;
 			int rightStart = 0;
+			int yStart, yEnd;
+
+			if (!getYRange(leftIdx, rightIdx, leftCand, rightCand, yStart, yEnd))
+				return false;
 
 			//left side가 더 앞
 			if (left.mY < right.mY)
 			{
-				for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
-				{
-					if (leftCand[l].mY > right.mY + 2)
-					{
-						yEnd = std::min(yEnd, leftCand[l].mY - 2);
-						break;
-					}
-				}
-
-				for (int r = rightIdx; r >= 0; r--)
-				{
-					if (rightCand[r].mY + rightCand[r].mHeight < left.mY + left.mHeight - 2)
-					{
-						yStart = std::max(yStart, rightCand[r].mY + rightCand[r].mHeight + 3);
-						break;
-					}
-				}
-
-				if (yStart > left.mY + left.mHeight - 2 ||
-					right.mY + 1 > yEnd)
-				{
-					return false;
-				}
-
 				std::uniform_int_distribution<int> leftDist(yStart, left.mY + left.mHeight - 2);
 				std::uniform_int_distribution<int> rightDist(right.mY + 1, yEnd);
 
@@ -452,30 +570,6 @@ private:
 			}
 			else
 			{
-				for (int l = leftIdx; l >= 0; l--)
-				{
-					if (leftCand[l].mY + leftCand[l].mHeight < right.mY + right.mHeight - 2)
-					{
-						yStart = std::max(yStart, leftCand[l].mY + leftCand[l].mHeight + 3);
-						break;
-					}
-				}
-
-				for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
-				{
-					if (rightCand[r].mY > left.mY + 2)
-					{
-						yEnd = std::min(yEnd, rightCand[r].mY - 2);
-						break;
-					}
-				}
-
-				if (left.mY + 1 > yEnd ||
-					yStart > right.mY + right.mHeight - 2)
-				{
-					return false;
-				}
-
 				std::uniform_int_distribution<int> leftDist(left.mY + 1, yEnd);
 				std::uniform_int_distribution<int> rightDist(yStart, right.mY + right.mHeight - 2);
 
@@ -548,32 +642,16 @@ private:
 		//y 공간이 3 이상 여유가 있는 경우 - 완전 랜덤 범위.
 		if (right.mY - (left.mY + left.mHeight) >= 3)
 		{
-			int xStart = std::min(left.mX + 1, right.mX + 1);
-			int xEnd = std::max(left.mX + left.mWidth - 2, right.mX + right.mWidth - 2);
 			int leftStart = 0;
 			int rightStart = 0;
+			int xStart, xEnd;
+
+			if (!getXRange(leftIdx, rightIdx, leftCand, rightCand, xStart, xEnd))
+				return false;
 
 			//left side가 더 앞
 			if (left.mX < right.mX)
 			{
-				for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
-				{
-					if (leftCand[l].mX > right.mX + 2)
-					{
-						xEnd = std::min(xEnd, leftCand[l].mX - 2);
-						break;
-					}
-				}
-
-				for (int r = rightIdx; r >= 0; r--)
-				{
-					if (rightCand[r].mX + rightCand[r].mWidth < left.mX + left.mWidth - 2)
-					{
-						xStart = std::max(xStart, rightCand[r].mX + rightCand[r].mWidth + 3);
-						break;
-					}
-				}
-
 				std::uniform_int_distribution<int> leftDist(xStart, left.mX + left.mWidth - 2);
 				std::uniform_int_distribution<int> rightDist(right.mX + 1, xEnd);
 
@@ -582,24 +660,6 @@ private:
 			}
 			else
 			{
-				for (int l = leftIdx; l >= 0; l--)
-				{
-					if (leftCand[l].mX + leftCand[l].mWidth < right.mX + right.mWidth - 2)
-					{
-						xStart = std::max(xStart, leftCand[l].mX + leftCand[l].mWidth + 3);
-						break;
-					}
-
-					for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
-					{
-						if (rightCand[r].mX > left.mX + 2)
-						{
-							xEnd = std::min(xEnd, rightCand[r].mX - 2);
-							break;
-						}
-					}
-				}
-
 				std::uniform_int_distribution<int> leftDist(left.mX + 1, xEnd);
 				std::uniform_int_distribution<int> rightDist(xStart, right.mX + right.mWidth - 2);
 
@@ -665,20 +725,16 @@ private:
 
 		int leftMax = left.mX + left.mWidth;
 		int rightMin = right.mX;
-		int yStart = std::min(left.mY + 1, right.mY + 1);
-		int yEnd = std::max(left.mY + left.mHeight - 2, right.mY + right.mHeight - 2);
+		int yStart, yEnd;
+
+		if (!getYRange(leftIdx, rightIdx, leftCand, rightCand, yStart, yEnd))
+			return false;
 
 		//left side가 더 앞
 		if (left.mY < right.mY)
 		{
 			for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
 			{
-				if (leftCand[l].mY > right.mY + 2)
-				{
-					yEnd = std::min(yEnd, leftCand[l].mY - 2);
-					break;
-				}
-
 				if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
 				{
 					leftMax = leftCand[l].mX + leftCand[l].mWidth;
@@ -687,12 +743,6 @@ private:
 
 			for (int r = rightIdx; r >= 0; r--)
 			{
-				if (rightCand[r].mY + rightCand[r].mHeight < left.mY + left.mHeight - 2)
-				{
-					yStart = std::max(yStart, rightCand[r].mY + rightCand[r].mHeight + 3);
-					break;
-				}
-
 				if (rightCand[r].mX < rightMin)
 				{
 					rightMin = rightCand[r].mX;
@@ -703,12 +753,6 @@ private:
 		{
 			for (int l = leftIdx; l >= 0; l--)
 			{
-				if (leftCand[l].mY + leftCand[l].mHeight < right.mY + right.mHeight - 2)
-				{
-					yStart = std::max(yStart, leftCand[l].mY + leftCand[l].mHeight + 3);
-					break;
-				}
-
 				if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
 				{
 					leftMax = leftCand[l].mX + leftCand[l].mWidth;
@@ -717,12 +761,6 @@ private:
 
 			for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
 			{
-				if (rightCand[r].mY > left.mY + 2)
-				{
-					yEnd = std::min(yEnd, rightCand[r].mY - 2);
-					break;
-				}
-
 				if (rightCand[r].mX < rightMin)
 				{
 					rightMin = rightCand[r].mX;
@@ -741,12 +779,6 @@ private:
 		//left side가 더 앞
 		if (left.mY < right.mY)
 		{
-			if (yStart > left.mY + left.mHeight - 2 ||
-				right.mY + 1 > yEnd)
-			{
-				return false;
-			}
-
 			std::uniform_int_distribution<int> startDist(yStart, left.mY + left.mHeight - 2);
 			std::uniform_int_distribution<int> endDist(right.mY + 1, yEnd);
 
@@ -771,12 +803,6 @@ private:
 		}
 		else
 		{
-			if (yStart > right.mY + right.mHeight - 2 ||
-				left.mY + 1 > yEnd)
-			{
-				return false;
-			}
-
 			std::uniform_int_distribution<int> startDist(yStart, right.mY + right.mHeight - 2);
 			std::uniform_int_distribution<int> endDist(left.mY + 1, yEnd);
 
@@ -813,20 +839,16 @@ private:
 
 		int leftMax = left.mY + left.mHeight;
 		int rightMin = right.mY;
-		int xStart = std::min(left.mX + 1, right.mX + 1);
-		int xEnd = std::max(left.mX + left.mWidth - 2, right.mX + right.mWidth - 2);
+		int xStart, xEnd;
+
+		if (!getXRange(leftIdx, rightIdx, leftCand, rightCand, xStart, xEnd))
+			return false;
 
 		//left side가 더 앞
 		if (left.mX < right.mX)
 		{
 			for (int l = leftIdx; l < static_cast<int>(leftCand.size()); l++)
 			{
-				if (leftCand[l].mX > right.mX + 2)
-				{
-					xEnd = std::min(xEnd, leftCand[l].mX - 2);
-					break;
-				}
-
 				if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
 				{
 					leftMax = leftCand[l].mY + leftCand[l].mHeight;
@@ -835,12 +857,6 @@ private:
 
 			for (int r = rightIdx; r >= 0; r--)
 			{
-				if (rightCand[r].mX + rightCand[r].mWidth < left.mX + left.mWidth - 2)
-				{
-					xStart = std::max(xStart, rightCand[r].mX + rightCand[r].mWidth + 3);
-					break;
-				}
-
 				if (rightCand[r].mY < rightMin)
 				{
 					rightMin = rightCand[r].mY;
@@ -851,12 +867,6 @@ private:
 		{
 			for (int l = leftIdx; l >= 0; l--)
 			{
-				if (leftCand[l].mX + leftCand[l].mWidth < right.mX + right.mWidth - 2)
-				{
-					xStart = std::max(xStart, leftCand[l].mX + leftCand[l].mWidth + 3);
-					break;
-				}
-
 				if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
 				{
 					leftMax = leftCand[l].mY + leftCand[l].mHeight;
@@ -865,12 +875,6 @@ private:
 
 			for (int r = rightIdx; r < static_cast<int>(rightCand.size()); r++)
 			{
-				if (rightCand[r].mX > left.mX + 2)
-				{
-					xEnd = std::min(xEnd, rightCand[r].mX - 2);
-					break;
-				}
-
 				if (rightCand[r].mY < rightMin)
 				{
 					rightMin = rightCand[r].mY;
@@ -888,13 +892,6 @@ private:
 		//left side가 더 앞
 		if (left.mX < right.mX)
 		{
-			//가능한 위치가 없는 경우
-			if (xStart > left.mX + left.mWidth - 2 ||
-				right.mX + 1 > xEnd)
-			{
-				return false;
-			}
-
 			std::uniform_int_distribution<int> startDist(xStart, left.mX + left.mWidth - 2);
 			std::uniform_int_distribution<int> endDist(right.mX + 1, xEnd);
 
@@ -919,13 +916,6 @@ private:
 		}
 		else
 		{
-			//가능한 위치가 없는 경우
-			if (xStart > right.mX + right.mWidth - 2 ||
-				left.mX + 1 > xEnd)
-			{
-				return false;
-			}
-
 			std::uniform_int_distribution<int> startDist(xStart, right.mX + right.mWidth - 2);
 			std::uniform_int_distribution<int> endDist(left.mX + 1, xEnd);
 
