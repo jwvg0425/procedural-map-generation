@@ -1,7 +1,7 @@
 #include "bsp.h"
 #include <fstream>
 
-void pmg::BSP::toTextFile(const std::string & path)
+void pmg::BSP::toTextFile(const std::string& path)
 {
 	std::ofstream stream(path);
 
@@ -12,13 +12,17 @@ void pmg::BSP::toTextFile(const std::string & path)
 	{
 		for (int x = 0; x < mWidth; x++)
 		{
-			if (mIsWall[y*mWidth + x])
+			switch(static_cast<TileType>(mData[y*mWidth + x]))
 			{
-				stream << "#";
-			}
-			else
-			{
+			case TileType::Hall:
+				stream << "*";
+				break;
+			case TileType::Room:
 				stream << ".";
+				break;
+			case TileType::Wall:
+				stream << "#";
+				break;
 			}
 		}
 
