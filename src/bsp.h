@@ -24,7 +24,8 @@ enum class TileType
 {
 	Wall,
 	Hall,
-	Room
+	Room,
+	Door
 };
 
 struct Point
@@ -61,6 +62,30 @@ struct Rectangle
 	int mHeight;
 
 	bool isConnect(const Rectangle& other) const;
+
+	bool isContain(const Point& pos) const;
+};
+
+struct Room : Rectangle
+{
+	Room() : Rectangle(), mIsVisited(false)
+	{
+	}
+
+	Room(int x, int y, int width, int height)
+		: Rectangle(x, y, width, height), mIsVisited(false)
+	{
+	}
+
+	void fillData(int width, std::vector<int>& data);
+
+	bool isOnLine(int pos, SideType type) const;
+
+	std::vector<Room*> getAllRooms();
+
+	std::vector<Room*> mConnectedRooms;
+	std::vector<Point> mDoors;
+	bool mIsVisited;
 };
 
 class Leaf
@@ -72,7 +97,7 @@ public:
 	}
 
 	//0.5 +- splitRange 범위에서 해당 범위를 두 부분으로 나눈다.
-	template<typename RandomGenerator = std::mt19937>
+	template<typename RandomGenerator>
 	void split(float splitRange, RandomGenerator& generator)
 	{
 		if (splitRange < 0.1f || splitRange > 0.4f)
@@ -106,7 +131,7 @@ public:
 	}
 
 	//리프 노드에 방을 만들어준다. 리프 노드 높이 / 너비의 sizeMid +- sizeDist 크기에서 생성. 
-	template<typename RandomGenerator = std::mt19937>
+	template<typename RandomGenerator>
 	void makeRoom(float sizeMid, float sizeRange, RandomGenerator& generator)
 	{
 		if (sizeMid - sizeRange < 0.0f || sizeMid + sizeRange > 1.0f)
@@ -146,7 +171,7 @@ public:
 
 
 	//분할된 각 노드들의 방을 모두 연결해서 하나의 맵으로 만든다.
-	template<typename RandomGenerator = std::mt19937>
+	template<typename RandomGenerator>
 	void merge(RandomGenerator& generator)
 	{
 		//연결할 자식이 없다.
@@ -170,101 +195,39 @@ public:
 		if (mLeftChild == nullptr || mRightChild == nullptr)
 			return;
 
-		std::vector<Rectangle> leftCand;
-		std::vector<Rectangle> rightCand;
-		std::function<bool(const Rectangle& lhs, const Rectangle& rhs)> comp;
+		std::vector<Room*> leftCand;
+		std::vector<Room*> rightCand;
 		
 		if (mIsWidthSplit)
 		{
 			mLeftChild->getSideRoom(SideType::Right, leftCand);
 			mRightChild->getSideRoom(SideType::Left, rightCand);
-			comp = [](const Rectangle& lhs, const Rectangle& rhs)
-			{
-				return lhs.mY < rhs.mY;
-			};
 		}
 		else
 		{
 			mLeftChild->getSideRoom(SideType::Bottom, leftCand);
 			mRightChild->getSideRoom(SideType::Top, rightCand);
-			comp = [](const Rectangle& lhs, const Rectangle& rhs)
-			{
-				return lhs.mX < rhs.mX;
-			};
 		}
 
 		//이미 연결된 방이 하나라도 있다면 pass
+		bool alreadyConnected = false;
 		for (auto& leftRoom : leftCand)
 		{
 			for (auto& rightRoom : rightCand)
 			{
-				if (leftRoom.isConnect(rightRoom))
-					return;
+				if (leftRoom->isConnect(*rightRoom))
+				{
+					alreadyConnected = true;
+					leftRoom->mConnectedRooms.push_back(rightRoom);
+					rightRoom->mConnectedRooms.push_back(leftRoom);
+				}
 			}
 		}
 
-		// 랜덤하게 두 쌍을 고른다. 그게 서로 연결이 가능하다면 연결하고, 연결이 불가능하다면 다른 두 쌍을 찾는다.
-		
-		//연결 가능성 테스트를 쉽게 하기 위해 각 축에 맞게 정렬
-		std::sort(leftCand.begin(), leftCand.end(), comp);
-		std::sort(rightCand.begin(), rightCand.end(), comp);
+		if (alreadyConnected)
+			return;
 
-		std::uniform_int_distribution<int> leftDist(0, leftCand.size() - 1);
-		std::uniform_int_distribution<int> rightDist(0, rightCand.size() - 1);
-
-		int leftIdx = 0; 
-		int rightIdx = 0;
-
-		//연결 성공할 때까지 반복해서 연결 시도.
-		do
-		{
-			leftIdx = leftDist(generator);
-			rightIdx = rightDist(generator);
-		} while (!connect(leftIdx, rightIdx, leftCand, rightCand, generator));
-	}
-
-	template<typename RandomGenerator>
-	bool connect(int leftIdx, int rightIdx,
-		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
-		RandomGenerator& generator)
-	{
-		const Rectangle& left = leftCand.at(leftIdx);
-		const Rectangle& right = rightCand.at(rightIdx);
-
-		if (mIsWidthSplit)
-		{
-			//case 1 : 서로 축에서 겹치는 게 있는 경우.
-			//이 경우 반드시 연결 가능. 연결한다.
-			//방이 연결되는 경우 때문에 양 끝 점은 제외한다. 그래서 끝 쪽에서 겹칠 경우 약간 더 공간 필요.
-			if (widthOverlapConnect(leftIdx, rightIdx, leftCand, rightCand, generator))
-			{
-				return true;
-			}
-
-			//case 2 : left 맨 끝과 right 맨 끝 사이 간격이 3 이상인 경우. 이 경우도 반드시 연결 가능.
-			if (widthSeparateConnect(leftIdx, rightIdx, leftCand, rightCand, generator))
-			{
-				return true;
-			}
-		}
-		else // 마찬가지. 축만 대칭적.
-		{
-			//case 1 : 서로 축에서 겹치는 게 있는 경우.
-			//이 경우 반드시 연결 가능. 연결한다.
-			//방이 연결되는 경우 때문에 양 끝 점은 제외한다. 그래서 끝 쪽에서 겹칠 경우 약간 더 공간 필요.
-			if (heightOverlapConnect(leftIdx, rightIdx, leftCand, rightCand, generator))
-			{
-				return true;
-			}
-
-			//case 2 : left 맨 끝과 right 맨 끝 사이 간격이 3 이상인 경우. 이 경우도 반드시 연결 가능.
-			if (heightSeparateConnect(leftIdx, rightIdx, leftCand, rightCand, generator))
-			{
-				return true;
-			}
-		}
-
-		return false;
+		connect(leftCand, rightCand, generator);
 	}
 
 	bool hasChild() const
@@ -282,22 +245,13 @@ public:
 		return mRightChild.get();
 	}
 
-	void fillData(int width, std::vector<int>& data) const;
+	void fillData(int width, std::vector<int>& data);
 
 private:
-
-	bool getXRange(int leftIdx, int rightIdx,
-		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
-		OUT int& start, OUT int& end) const;
-
-	bool getYRange(int leftIdx, int rightIdx,
-		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
-		OUT int& start, OUT int& end) const;
-
-	void getSideRoom(SideType type, OUT std::vector<Rectangle>& rooms) const;
+	void getSideRoom(SideType type, OUT std::vector<Room*>& rooms);
 
 	//너비 분할. 분할 후 너비가 LEAF_MINIMUM_SIZE 보다 작은 부분이 존재할 경우 false 리턴.
-	template<typename RandomGenerator = std::mt19937>
+	template<typename RandomGenerator>
 	bool widthSplit(float splitRange, RandomGenerator& generator)
 	{
 		std::uniform_real_distribution<float> rangeDist(0.5f - splitRange, 0.5f + splitRange);
@@ -316,7 +270,7 @@ private:
 	}
 
 	//높이 분할. 분할 후 너비가 LEAF_MINIMUM_SIZE보다 작은 부분이 존재할 경우 false 리턴.
-	template<typename RandomGenerator = std::mt19937>
+	template<typename RandomGenerator>
 	bool heightSplit(float splitRange, RandomGenerator& generator)
 	{
 		std::uniform_real_distribution<float> rangeDist(0.5f - splitRange, 0.5f + splitRange);
@@ -335,400 +289,464 @@ private:
 	}
 
 	template<typename RandomGenerator>
-	bool widthOverlapConnect(int leftIdx, int rightIdx,
-		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
+	void connect(const std::vector<Room*>& leftCand, const std::vector<Room*>& rightCand, 
 		RandomGenerator& generator)
 	{
-		const Rectangle& left = leftCand.at(leftIdx);
-		const Rectangle& right = rightCand.at(rightIdx);
+		using BlockPair = std::pair<int, int>;
+		std::vector<BlockPair> blocks;
+		int nowl = 0, nowr = 0;
+		int midline;
 
-		if ((left.mY < right.mY || left.mY >= right.mY + right.mHeight - 2) &&
-			(right.mY < left.mY || right.mY >= left.mY + left.mHeight - 2))
+		if (mIsWidthSplit)
+			midline = mInfo.mWidth;
+		else
+			midline = mInfo.mHeight;
+
+		while (nowl < static_cast<int>(leftCand.size()) && 
+			   nowr < static_cast<int>(rightCand.size()))
 		{
-			return false;
-		}
+			Room& left = *leftCand[nowl];
+			Room& right = *rightCand[nowr];
 
-		//y 공간이 3 이상 여유가 있는 경우 - 완전 랜덤 범위.
-		if (right.mX - (left.mX + left.mWidth) >= 3)
-		{
-			int leftStart = 0;
-			int rightStart = 0;
-			int yStart, yEnd;
-
-			if (!getYRange(leftIdx, rightIdx, leftCand, rightCand, yStart, yEnd))
-				return false;
-
-			//left side가 더 앞
-			if (left.mY < right.mY)
+			if (mIsWidthSplit)
 			{
-				std::uniform_int_distribution<int> leftDist(yStart, left.mY + left.mHeight - 2);
-				std::uniform_int_distribution<int> rightDist(right.mY + 1, yEnd);
+				if (left.mX + left.mWidth == midline && right.mX == midline)
+				{
+					if ((left.mY >= right.mY && left.mY <= right.mY + right.mHeight) ||
+						(right.mY >= left.mY && right.mY <= left.mY + left.mHeight))
+					{
+						blocks.push_back(std::make_pair(nowl, nowr));
+					}
+				}
 
-				leftStart = leftDist(generator);
-				rightStart = rightDist(generator);
+				if (right.mY + right.mHeight > left.mY + left.mHeight)
+				{
+					nowl++;
+				}
+				else
+				{
+					nowr++;
+				}
 			}
 			else
 			{
-				std::uniform_int_distribution<int> leftDist(left.mY + 1, yEnd);
-				std::uniform_int_distribution<int> rightDist(yStart, right.mY + right.mHeight - 2);
+				if (left.mY + left.mHeight == midline && right.mY == midline)
+				{
+					if ((left.mX >= right.mX && left.mX <= right.mX + right.mWidth) ||
+						(right.mX >= left.mX && right.mX <= left.mX + left.mWidth))
+					{
+						blocks.push_back(std::make_pair(nowl, nowr));
+					}
+				}
 
-				leftStart = leftDist(generator);
-				rightStart = rightDist(generator);
-			}
-
-			int mid = (left.mX + left.mWidth + right.mX) / 2;
-
-			for (int l = left.mX + left.mWidth; l < mid; l++)
-			{
-				hallways.emplace_back(l, leftStart);
-			}
-			for (int r = right.mX - 1; r > mid; r--)
-			{
-				hallways.emplace_back(r, rightStart);
-			}
-
-			int midStart = std::min(leftStart, rightStart);
-			int midEnd = std::max(leftStart, rightStart);
-
-			for (int m = midStart; m <= midEnd; m++)
-			{
-				hallways.emplace_back(mid, m);
+				if (right.mX + right.mWidth > left.mX + left.mWidth)
+				{
+					nowl++;
+				}
+				else
+				{
+					nowr++;
+				}
 			}
 		}
-		else // 3보다 여유가 없는 경우 - 겹치는 범위에서 랜덤.
-		{
-			int start = 0;
-			int end = std::min(left.mY + left.mHeight - 2, right.mY + right.mHeight - 2);
 
-			if (left.mY >= right.mY && left.mY < right.mY + right.mHeight)
+		//leftCand 중에 방 하나 골라서 여기를 시작 방으로 정함.
+		std::uniform_int_distribution<int> beginDist(0, leftCand.size() - 1);
+		int beginRoomIdx = beginDist(generator);
+		auto& begin = *leftCand[beginRoomIdx];
+		int firstBlock = 0, lastBlock = rightCand.size() - 1;
+
+		for (int i = 0; i < static_cast<int>(blocks.size()); i++)
+		{
+			if (blocks[i].first <= beginRoomIdx)
 			{
-				start = left.mY + 1;
+				if (blocks[i].second > firstBlock)
+				{
+					firstBlock = blocks[i].second;
+				}
+			}
+
+			if (blocks[i].first >= beginRoomIdx)
+			{
+				if (blocks[i].second < lastBlock)
+				{
+					lastBlock = blocks[i].second;
+				}
+			}
+		}
+
+		std::uniform_int_distribution<int> endDist(firstBlock, lastBlock);
+		int endRoomIdx = endDist(generator);
+		auto& end = *rightCand[endRoomIdx];
+
+		//begin과 end 위치를 연결. 문 위치를 정한 다음 두 문을 연결한다.
+		auto beginDoor = getDoor(beginRoomIdx, true, leftCand, rightCand, generator);
+		auto endDoor = getDoor(endRoomIdx, false, rightCand, leftCand, generator);
+
+		begin.mDoors.push_back(beginDoor);
+		end.mDoors.push_back(endDoor);
+
+		Point beginHall, endHall;
+
+		int dx, dy;
+
+		if (mIsWidthSplit)
+		{
+			if (beginDoor.mY == begin.mY)
+			{
+				dx = 0; dy = -1;
+			}
+			else if (beginDoor.mX == begin.mX + begin.mWidth - 1)
+			{
+				dx = 1; dy = 0;
 			}
 			else
 			{
-				start = right.mY + 1;
+				dx = 0; dy = 1;
 			}
+			beginHall.mX = beginDoor.mX + dx;
+			beginHall.mY = beginDoor.mY + dy;
 
-			_ASSERT(start <= end);
-
-			std::uniform_int_distribution<int> dist(start, end);
-
-			int y = dist(generator);
-
-			for (int x = left.mX + left.mWidth; x < right.mX; x++)
+			if (endDoor.mY == end.mY)
 			{
-				hallways.emplace_back(x, y);
+				dx = 0; dy = -1;
 			}
+			else if (endDoor.mX == end.mX)
+			{
+				dx = -1; dy = 0;
+			}
+			else
+			{
+				dx = 0; dy = 1;
+			}
+			endHall.mX = endDoor.mX + dx;
+			endHall.mY = endDoor.mY + dy;
+		}
+		else
+		{
+			if (beginDoor.mX == begin.mX)
+			{
+				dx = -1; dy = 0;
+			}
+			else if (beginDoor.mY == begin.mY + begin.mHeight - 1)
+			{
+				dx = 0; dy = 1;
+			}
+			else
+			{
+				dx = 1; dy = 0;
+			}
+			beginHall.mX = beginDoor.mX + dx;
+			beginHall.mY = beginDoor.mY + dy;
+
+			if (endDoor.mX == end.mX)
+			{
+				dx = -1; dy = 0;
+			}
+			else if (endDoor.mY == end.mY)
+			{
+				dx = 0; dy = -1;
+			}
+			else
+			{
+				dx = 1; dy = 0;
+			}
+			endHall.mX = endDoor.mX + dx;
+			endHall.mY = endDoor.mY + dy;
 		}
 
-		return true;
+		while (beginHall.mX != endHall.mX || beginHall.mY != endHall.mY)
+		{
+			mHallways.push_back(beginHall);
+
+			int dx, dy;
+			if (mIsWidthSplit)
+			{
+				if (beginHall.mY < endHall.mY)
+				{
+					dx = 0;
+					dy = 1;
+				}
+				else if (beginHall.mY == endHall.mY)
+				{
+					dx = 1;
+					dy = 0;
+				}
+				else
+				{
+					dx = 0;
+					dy = -1;
+				}
+
+				if (std::any_of(leftCand.begin(), leftCand.end(), [&beginHall,dx,dy](Room* room)
+				{
+					return room->isContain(Point(beginHall.mX + dx, beginHall.mY + dy));
+				}))
+				{
+					dx = 1;
+					dy = 0;
+				}
+				else if (std::any_of(rightCand.begin(), rightCand.end(), [&beginHall, dx, dy](Room* room)
+				{
+					return room->isContain(Point(beginHall.mX + dx, beginHall.mY + dy));
+				}))
+				{
+					dx = -1;
+					dy = 0;
+				}
+			}
+			else
+			{
+				if (beginHall.mX < endHall.mX)
+				{
+					dx = 1;
+					dy = 0;
+				}
+				else if (beginHall.mX == endHall.mX)
+				{
+					dx = 0;
+					dy = 1;
+				}
+				else
+				{
+					dx = -1;
+					dy = 0;
+				}
+
+				if (std::any_of(leftCand.begin(), leftCand.end(), [&beginHall, dx, dy](Room* room)
+				{
+					return room->isContain(Point(beginHall.mX + dx, beginHall.mY + dy));
+				}))
+				{
+					dx = 0;
+					dy = 1;
+				}
+				else if (std::any_of(rightCand.begin(), rightCand.end(), [&beginHall, dx, dy](Room* room)
+				{
+					return room->isContain(Point(beginHall.mX + dx, beginHall.mY + dy));
+				}))
+				{
+					dx = 0;
+					dy = -1;
+				}
+			}
+
+			beginHall.mX += dx;
+			beginHall.mY += dy;
+		}
+
+		mHallways.push_back(endHall);
 	}
 
 	template<typename RandomGenerator>
-	bool heightOverlapConnect(int leftIdx, int rightIdx,
-		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
+	Point getDoor(int roomIdx, bool isBegin,
+		const std::vector<Room*>& sideRooms, const std::vector<Room*>& otherSideRooms,
 		RandomGenerator& generator)
 	{
-		const Rectangle& left = leftCand.at(leftIdx);
-		const Rectangle& right = rightCand.at(rightIdx);
+		std::vector<Point> cand;
+		int beginLine, endLine;
+		Room& room = *sideRooms[roomIdx];
 
-		if ((left.mX < right.mX || left.mX >= right.mX + right.mWidth - 2) &&
-			(right.mX < left.mX || right.mX >= left.mX + left.mWidth - 2))
+		if (mIsWidthSplit)
 		{
-			return false;
+			if (roomIdx == 0)
+				beginLine = mInfo.mY;
+			else
+				beginLine = sideRooms[roomIdx - 1]->mY + sideRooms[roomIdx - 1]->mHeight - 1;
+
+			if (roomIdx == sideRooms.size() - 1)
+				endLine = mInfo.mY + mInfo.mHeight - 1;
+			else
+				endLine = sideRooms[roomIdx + 1]->mY;
+
+			if (room.mY > beginLine + 1)
+			{
+				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
+				{
+					if (std::any_of(room.mDoors.begin(), room.mDoors.end(), [&room, x](const Point& door)
+					{
+						return door.mY == room.mY && (door.mX - 1 == x || door.mX + 1 == x);
+					}))
+					{
+						continue;
+					}
+
+					cand.emplace_back(x, room.mY);
+				}
+			}
+
+			if (room.mY + room.mHeight < endLine)
+			{
+				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
+				{
+					if (std::any_of(room.mDoors.begin(), room.mDoors.end(), [&room, x](const Point& door)
+					{
+						return door.mY == room.mY + room.mHeight - 1 && (door.mX - 1 == x || door.mX + 1 == x);
+					}))
+					{
+						continue;
+					}
+
+					cand.emplace_back(x, room.mY + room.mHeight - 1);
+				}
+			}
+		}
+		else
+		{
+			if (roomIdx == 0)
+				beginLine = mInfo.mX;
+			else
+				beginLine = sideRooms[roomIdx - 1]->mX + sideRooms[roomIdx - 1]->mWidth - 1;
+
+			if (roomIdx == sideRooms.size() - 1)
+				endLine = mInfo.mX + mInfo.mWidth - 1;
+			else
+				endLine = sideRooms[roomIdx + 1]->mX;
+
+			if (room.mX > beginLine + 1)
+			{
+				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
+				{
+					if (std::any_of(room.mDoors.begin(), room.mDoors.end(), [&room, y](const Point& door)
+					{
+						return door.mX == room.mX && (door.mY - 1 == y || door.mY + 1 == y);
+					}))
+					{
+						continue;
+					}
+
+					cand.emplace_back(room.mX,y);
+				}
+			}
+
+			if (room.mX + room.mWidth < endLine)
+			{
+				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
+				{
+					if (std::any_of(room.mDoors.begin(), room.mDoors.end(), [&room, y](const Point& door)
+					{
+						return door.mX == room.mX + room.mWidth - 1 && (door.mY - 1 == y || door.mY + 1 == y);
+					}))
+					{
+						continue;
+					}
+
+					cand.emplace_back(room.mX + room.mWidth - 1, y);
+				}
+			}
 		}
 
-		//y 공간이 3 이상 여유가 있는 경우 - 완전 랜덤 범위.
-		if (right.mY - (left.mY + left.mHeight) >= 3)
+		if (mIsWidthSplit)
 		{
-			int leftStart = 0;
-			int rightStart = 0;
-			int xStart, xEnd;
-
-			if (!getXRange(leftIdx, rightIdx, leftCand, rightCand, xStart, xEnd))
-				return false;
-
-			//left side가 더 앞
-			if (left.mX < right.mX)
+			if (isBegin)
 			{
-				std::uniform_int_distribution<int> leftDist(xStart, left.mX + left.mWidth - 2);
-				std::uniform_int_distribution<int> rightDist(right.mX + 1, xEnd);
+				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
+				{
+					if (std::any_of(otherSideRooms.begin(), otherSideRooms.end(), [&room, y](Room* r)
+					{
+						return r->mX == room.mX + room.mWidth && y >= r->mY && y < r->mY + r->mHeight;
+					}))
+					{
+						continue;
+					}
 
-				leftStart = leftDist(generator);
-				rightStart = rightDist(generator);
+					if (std::any_of(room.mDoors.begin(), room.mDoors.end(), [&room, y](const Point& door)
+					{
+						return door.mX == room.mX + room.mWidth - 1 && (door.mY - 1 == y || door.mY + 1 == y);
+					}))
+					{
+						continue;
+					}
+
+					cand.emplace_back(room.mX + room.mWidth - 1, y);
+				}
 			}
 			else
 			{
-				std::uniform_int_distribution<int> leftDist(left.mX + 1, xEnd);
-				std::uniform_int_distribution<int> rightDist(xStart, right.mX + right.mWidth - 2);
+				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
+				{
+					if (std::any_of(otherSideRooms.begin(), otherSideRooms.end(), [&room, y](Room* r)
+					{
+						return room.mX == r->mX + r->mWidth && y >= r->mY && y < r->mY + r->mHeight;
+					}))
+					{
+						continue;
+					}
 
-				leftStart = leftDist(generator);
-				rightStart = rightDist(generator);
-			}
+					if (std::any_of(room.mDoors.begin(), room.mDoors.end(), [&room, y](const Point& door)
+					{
+						return door.mX == room.mX && (door.mY - 1 == y || door.mY + 1 == y);
+					}))
+					{
+						continue;
+					}
 
-			int mid = (left.mY + left.mHeight + right.mY) / 2;
-
-			for (int l = left.mY + left.mHeight; l < mid; l++)
-			{
-				hallways.emplace_back(leftStart, l);
-			}
-			for (int r = right.mY - 1; r > mid; r--)
-			{
-				hallways.emplace_back(rightStart, r);
-			}
-
-			int midStart = std::min(leftStart, rightStart);
-			int midEnd = std::max(leftStart, rightStart);
-
-			for (int m = midStart; m <= midEnd; m++)
-			{
-				hallways.emplace_back(m, mid);
+					cand.emplace_back(room.mX, y);
+				}
 			}
 		}
-		else // 3보다 여유가 없는 경우 - 겹치는 범위에서 랜덤.
+		else
 		{
-			int start = 0;
-			int end = std::min(left.mX + left.mWidth - 2, right.mX + right.mWidth - 2);
-
-			if (left.mX >= right.mX && left.mX < right.mX + right.mWidth)
+			if (isBegin)
 			{
-				start = left.mX + 1;
+				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
+				{
+					if (std::any_of(otherSideRooms.begin(), otherSideRooms.end(), [&room, x](Room* r)
+					{
+						return r->mY == room.mY + room.mHeight && x >= r->mX && x < r->mX + r->mWidth;
+					}))
+					{
+						continue;
+					}
+
+					if (std::any_of(room.mDoors.begin(), room.mDoors.end(), [&room, x](const Point& door)
+					{
+						return door.mY == room.mY + room.mHeight - 1 && (door.mX - 1 == x || door.mX + 1 == x);
+					}))
+					{
+						continue;
+					}
+
+					cand.emplace_back(x, room.mY + room.mHeight - 1);
+				}
 			}
 			else
 			{
-				start = right.mX + 1;
-			}
+				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
+				{
+					if (std::any_of(otherSideRooms.begin(), otherSideRooms.end(), [&room, x](Room* r)
+					{
+						return room.mY == r->mY + r->mHeight && x >= r->mX && x < r->mX + r->mWidth;
+					}))
+					{
+						continue;
+					}
 
-			_ASSERT(start <= end);
+					if (std::any_of(room.mDoors.begin(), room.mDoors.end(), [&room, x](const Point& door)
+					{
+						return door.mY == room.mY && (door.mX - 1 == x || door.mX + 1 == x);
+					}))
+					{
+						continue;
+					}
 
-			std::uniform_int_distribution<int> dist(start, end);
-
-			int x = dist(generator);
-
-			for (int y = left.mY + left.mHeight; y < right.mY; y++)
-			{
-				hallways.emplace_back(x, y);
-			}
-		}
-
-		return true;
-	}
-
-	template<typename RandomGenerator>
-	bool widthSeparateConnect(int leftIdx, int rightIdx,
-		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
-		RandomGenerator& generator)
-	{
-		const Rectangle& left = leftCand.at(leftIdx);
-		const Rectangle& right = rightCand.at(rightIdx);
-
-		int leftMax = left.mX + left.mWidth;
-		int rightMin = right.mX;
-		int yStart, yEnd;
-		int dl, dr;
-
-		if (!getYRange(leftIdx, rightIdx, leftCand, rightCand, yStart, yEnd))
-			return false;
-
-		//left side가 더 앞
-		if (left.mY < right.mY)
-		{
-			dl = 1;
-			dr = -1;
-		}
-		else
-		{
-			dl = -1;
-			dr = 1;
-		}
-
-		for (int l = leftIdx; l >= 0 && l < static_cast<int>(leftCand.size()); l+= dl)
-		{
-			if (leftCand[l].mX + leftCand[l].mWidth > leftMax)
-			{
-				leftMax = leftCand[l].mX + leftCand[l].mWidth;
+					cand.emplace_back(x, room.mY);
+				}
 			}
 		}
 
-		for (int r = rightIdx; r >= 0 && r < static_cast<int>(rightCand.size()); r+= dr)
-		{
-			if (rightCand[r].mX < rightMin)
-			{
-				rightMin = rightCand[r].mX;
-			}
-		}
+		std::uniform_int_distribution<int> candDist(0, cand.size() - 1);
+		Point door = cand[candDist(generator)];
 
-		//공간 부족
-		if (rightMin - leftMax < 3)
-		{
-			return false;
-		}
-
-		int mid = (leftMax + rightMin) / 2;
-
-		//left side가 더 앞
-		if (left.mY < right.mY)
-		{
-			std::uniform_int_distribution<int> startDist(yStart, left.mY + left.mHeight - 2);
-			std::uniform_int_distribution<int> endDist(right.mY + 1, yEnd);
-
-			int start = startDist(generator);
-			int end = endDist(generator);
-			_ASSERT(start <= end);
-
-			for (int l = left.mX + left.mWidth; l < mid; l++)
-			{
-				hallways.emplace_back(l, start);
-			}
-
-			for (int r = right.mX - 1; r > mid; r--)
-			{
-				hallways.emplace_back(r, end);
-			}
-
-			for (int y = start; y <= end; y++)
-			{
-				hallways.emplace_back(mid, y);
-			}
-		}
-		else
-		{
-			std::uniform_int_distribution<int> startDist(yStart, right.mY + right.mHeight - 2);
-			std::uniform_int_distribution<int> endDist(left.mY + 1, yEnd);
-
-			int start = startDist(generator);
-			int end = endDist(generator);
-			_ASSERT(start <= end);
-
-			for (int r = right.mX - 1; r > mid; r--)
-			{
-				hallways.emplace_back(r, start);
-			}
-
-			for (int l = left.mX + left.mWidth; l < mid; l++)
-			{
-				hallways.emplace_back(l, end);
-			}
-
-			for (int y = start; y <= end; y++)
-			{
-				hallways.emplace_back(mid, y);
-			}
-		}
-
-		return true;
-	}
-
-	template<typename RandomGenerator>
-	bool heightSeparateConnect(int leftIdx, int rightIdx,
-		const std::vector<Rectangle>& leftCand, const std::vector<Rectangle>& rightCand,
-		RandomGenerator& generator)
-	{
-		const Rectangle& left = leftCand.at(leftIdx);
-		const Rectangle& right = rightCand.at(rightIdx);
-
-		int leftMax = left.mY + left.mHeight;
-		int rightMin = right.mY;
-		int xStart, xEnd;
-		int dl, dr;
-
-		if (!getXRange(leftIdx, rightIdx, leftCand, rightCand, xStart, xEnd))
-			return false;
-
-		//left side가 더 앞
-		if (left.mX < right.mX)
-		{
-			dl = 1;
-			dr = -1;
-		}
-		else
-		{
-			dl = -1;
-			dr = 1;
-		}
-
-		for (int l = leftIdx; l >= 0 && l < static_cast<int>(leftCand.size()); l+= dl)
-		{
-			if (leftCand[l].mY + leftCand[l].mHeight > leftMax)
-			{
-				leftMax = leftCand[l].mY + leftCand[l].mHeight;
-			}
-		}
-
-		for (int r = rightIdx; r >= 0 && r < static_cast<int>(rightCand.size()); r+= dr)
-		{
-			if (rightCand[r].mY < rightMin)
-			{
-				rightMin = rightCand[r].mY;
-			}
-		}
-
-		//공간 부족
-		if (rightMin - leftMax < 3)
-		{
-			return false;
-		}
-
-		int mid = (leftMax + rightMin) / 2;
-		//left side가 더 앞
-		if (left.mX < right.mX)
-		{
-			std::uniform_int_distribution<int> startDist(xStart, left.mX + left.mWidth - 2);
-			std::uniform_int_distribution<int> endDist(right.mX + 1, xEnd);
-
-			int start = startDist(generator);
-			int end = endDist(generator);
-			_ASSERT(start <= end);
-
-			for (int l = left.mY + left.mHeight; l < mid; l++)
-			{
-				hallways.emplace_back(start, l);
-			}
-
-			for (int r = right.mY - 1; r > mid; r--)
-			{
-				hallways.emplace_back(end, r);
-			}
-
-			for (int x = start; x <= end; x++)
-			{
-				hallways.emplace_back(x, mid);
-			}
-		}
-		else
-		{
-			std::uniform_int_distribution<int> startDist(xStart, right.mX + right.mWidth - 2);
-			std::uniform_int_distribution<int> endDist(left.mX + 1, xEnd);
-
-			int start = startDist(generator);
-			int end = endDist(generator);
-			_ASSERT(start <= end);
-
-			for (int r = right.mY - 1; r > mid; r--)
-			{
-				hallways.emplace_back(start, r);
-			}
-
-			for (int l = left.mY + left.mHeight; l < mid; l++)
-			{
-				hallways.emplace_back(end, l);
-			}
-
-			for (int x = start; x <= end; x++)
-			{
-				hallways.emplace_back(x, mid);
-			}
-		}
-
-		return true;
+		return door;
 	}
 
 	const int LEAF_MINIMUM_SIZE = 10;
 	const int ROOM_MINIMUM_SIZE = 3;
 
-	std::vector<Point> hallways;
+	std::vector<Point> mHallways;
 	Rectangle mInfo;
-	Rectangle mRoom;
+	Room mRoom;
 	std::unique_ptr<Leaf> mLeftChild;
 	std::unique_ptr<Leaf> mRightChild;
 	bool mIsWidthSplit;
@@ -770,7 +788,7 @@ public:
 private:
 
 	//트리를 분할해서 맵을 여러 개의 노드로 분할한다.
-	template<typename RandomGenerator = std::mt19937>
+	template<typename RandomGenerator>
 	void split(RandomGenerator& generator)
 	{
 		std::queue<Leaf*> leaves;

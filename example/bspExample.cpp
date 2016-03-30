@@ -16,6 +16,8 @@ int main()
 			return '.';
 		case pmg::TileType::Wall:
 			return '#';
+		case pmg::TileType::Door:
+			return 'D';
 		}
 
 		return '?';
