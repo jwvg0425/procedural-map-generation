@@ -4,7 +4,6 @@
 #include <queue>
 #include <functional>
 #include <sstream>
-#include <fstream>
 #include <algorithm>
 #include <iterator>
 
@@ -200,7 +199,7 @@ public:
 
 	//분할된 각 노드들의 방을 모두 연결해서 하나의 맵으로 만든다.
 	template<typename RandomGenerator>
-	void merge(RandomGenerator& generator)
+	void merge(int complexity, RandomGenerator& generator)
 	{
 		//연결할 자식이 없다.
 		if (!hasChild())
@@ -211,12 +210,12 @@ public:
 		// 자식의 자식 먼저 연결
 		if (mLeftChild != nullptr)
 		{
-			mLeftChild->merge(generator);
+			mLeftChild->merge(complexity, generator);
 		}
 
 		if (mRightChild != nullptr)
 		{
-			mRightChild->merge(generator);
+			mRightChild->merge(complexity, generator);
 		}
 
 		//두 자식 연결. 서로 맞닿은 위치에서의 노드들을 모두 구해서, 그 중 랜덤한 두 방을 연결
@@ -259,7 +258,7 @@ public:
 		if (alreadyConnected)
 			return;
 
-		connect(leftCand, rightCand, hallways, generator);
+		connect(complexity, leftCand, rightCand, hallways, generator);
 	}
 
 	bool hasChild() const
@@ -323,9 +322,9 @@ private:
 	}
 
 	template<typename RandomGenerator>
-	void connect(const std::vector<Room*>& leftCand, const std::vector<Room*>& rightCand, 
-		std::vector<Point>& hallways,
-		RandomGenerator& generator)
+	void connect(int complexity,
+		const std::vector<Room*>& leftCand, const std::vector<Room*>& rightCand, 
+		std::vector<Point>& hallways, RandomGenerator& generator)
 	{
 		Point beginDoor;
 		Point endDoor;
@@ -431,7 +430,7 @@ private:
 			area = Rectangle(ax, ay, awidth, aheight);
 
 		} while (!isConnect(beginHall, endHall, hallways, visited) &&
-			!makeHallway(beginHall, endHall, area, rooms, visited, hallways, generator));
+			!makeHallway(beginHall, endHall, area, complexity, rooms, visited, hallways, generator));
 
 		leftCand[beginRoomIdx]->mDoors.push_back(beginDoor);
 		rightCand[endRoomIdx]->mDoors.push_back(endDoor);
@@ -492,12 +491,12 @@ private:
 
 	//dfs 기반으로 빈 공간을 탐색하며 복도를 생성함.
 	template<typename RandomGenerator>
-	bool makeHallway(Point begin, Point end, const Rectangle& area,
+	bool makeHallway(Point begin, Point end, const Rectangle& area, int complexity,
 		const std::vector<Rectangle>& rooms, std::vector<Point>& visited, std::vector<Point>& otherHall,
 		RandomGenerator& generator)
 	{
 
-		if (begin.mX < 0 || begin.mY < 0 ||
+		if (begin.mX < mInfo.mX || begin.mY < mInfo.mY ||
 			begin.mX >= mInfo.mX + mInfo.mWidth || begin.mY >= mInfo.mY + mInfo.mHeight)
 		{
 			return false;
@@ -524,8 +523,8 @@ private:
 		{
 			if (isContainPoint(otherHall, left) ||
 				(area.isContain(left) &&
-				(!isContainPoint(otherHall, left.mX, left.mY - 1) &&
-				!isContainPoint(otherHall, left.mX, left.mY + 1))))
+				!isContainPoint(otherHall, left.mX, left.mY - 1) &&
+				!isContainPoint(otherHall, left.mX, left.mY + 1)))
 			{
 				cand.push_back(left);
 			}
@@ -536,8 +535,8 @@ private:
 		{
 			if (isContainPoint(otherHall, up) ||
 				(area.isContain(up) &&
-				(!isContainPoint(otherHall, up.mX - 1, up.mY) &&
-				!isContainPoint(otherHall, up.mX + 1, up.mY))))
+				!isContainPoint(otherHall, up.mX - 1, up.mY) &&
+				!isContainPoint(otherHall, up.mX + 1, up.mY)))
 			{
 				cand.push_back(up);
 			}
@@ -548,8 +547,8 @@ private:
 		{
 			if (isContainPoint(otherHall, right) ||
 				(area.isContain(right) &&
-				(!isContainPoint(otherHall, right.mX, right.mY - 1) &&
-				!isContainPoint(otherHall, right.mX, right.mY + 1))))
+				!isContainPoint(otherHall, right.mX, right.mY - 1) &&
+				!isContainPoint(otherHall, right.mX, right.mY + 1)))
 			{
 				cand.push_back(right);
 			}
@@ -560,18 +559,28 @@ private:
 		{
 			if (isContainPoint(otherHall, down) ||
 				(area.isContain(down) &&
-				(!isContainPoint(otherHall, down.mX - 1, down.mY) &&
-				!isContainPoint(otherHall, down.mX + 1, down.mY))))
+				!isContainPoint(otherHall, down.mX - 1, down.mY) &&
+				!isContainPoint(otherHall, down.mX + 1, down.mY)))
 			{
 				cand.push_back(down);
 			}
 		}
 
-		std::shuffle(cand.begin(), cand.end(), generator);
+		std::sort(cand.begin(), cand.end(), [&end](const Point& lhs, const Point& rhs)
+		{
+			int l = (lhs.mX - end.mX) * (lhs.mX - end.mX) + (lhs.mY - end.mY) * (lhs.mY - end.mY);
+			int r = (rhs.mX - end.mX) * (rhs.mX - end.mX) + (rhs.mY - end.mY) * (rhs.mY - end.mY);
+
+			return l < r;
+		});
+
+		int offset = std::max<int>(0, cand.size() - complexity - 1);
+
+		std::shuffle(cand.begin() + offset, cand.end(), generator);
 
 		for (auto& c : cand)
 		{
-			if (makeHallway(c, end, area, rooms, visited, otherHall, generator))
+			if (makeHallway(c, end, area, complexity, rooms, visited, otherHall, generator))
 			{
 				mHallways.push_back(begin);
 				return true;
@@ -590,10 +599,22 @@ private:
 		{
 			for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
 			{
+				if (isContainPoint(room.mDoors, { x - 1, room.mY }) ||
+					isContainPoint(room.mDoors, { x + 1, room.mY }))
+				{
+					continue;
+				}
+
 				cand.emplace_back(x, room.mY);
 			}
 			for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
 			{
+				if (isContainPoint(room.mDoors, { x - 1, room.mY + room.mHeight - 1 }) ||
+					isContainPoint(room.mDoors, { x + 1, room.mY + room.mHeight - 1 }))
+				{
+					continue;
+				}
+
 				cand.emplace_back(x, room.mY + room.mHeight - 1);
 			}
 		}
@@ -601,11 +622,23 @@ private:
 		{
 			for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
 			{
+				if (isContainPoint(room.mDoors, { room.mX, y - 1 }) ||
+					isContainPoint(room.mDoors, { room.mX, y + 1 }))
+				{
+					continue;
+				}
+
 				cand.emplace_back(room.mX, y);
 			}
 
 			for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
 			{
+				if (isContainPoint(room.mDoors, { room.mX + room.mWidth - 1, y - 1 }) ||
+					isContainPoint(room.mDoors, { room.mX + room.mWidth - 1, y + 1 }))
+				{
+					continue;
+				}
+
 				cand.emplace_back(room.mX + room.mWidth - 1, y);
 			}
 		}
@@ -616,6 +649,12 @@ private:
 			{
 				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
 				{
+					if (isContainPoint(room.mDoors, { room.mX + room.mWidth - 1, y - 1 }) ||
+						isContainPoint(room.mDoors, { room.mX + room.mWidth - 1, y + 1 }))
+					{
+						continue;
+					}
+
 					cand.emplace_back(room.mX + room.mWidth - 1, y);
 				}
 			}
@@ -623,6 +662,12 @@ private:
 			{
 				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
 				{
+					if (isContainPoint(room.mDoors, { room.mX, y - 1 }) ||
+						isContainPoint(room.mDoors, { room.mX, y + 1 }))
+					{
+						continue;
+					}
+
 					cand.emplace_back(room.mX, y);
 				}
 			}
@@ -633,6 +678,12 @@ private:
 			{
 				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
 				{
+					if (isContainPoint(room.mDoors, { x - 1, room.mY + room.mHeight - 1 }) ||
+						isContainPoint(room.mDoors, { x + 1, room.mY + room.mHeight - 1 }))
+					{
+						continue;
+					}
+
 					cand.emplace_back(x, room.mY + room.mHeight - 1);
 				}
 			}
@@ -640,6 +691,12 @@ private:
 			{
 				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
 				{
+					if (isContainPoint(room.mDoors, { x - 1, room.mY }) ||
+						isContainPoint(room.mDoors, { x + 1, room.mY }))
+					{
+						continue;
+					}
+
 					cand.emplace_back(x, room.mY);
 				}
 			}
@@ -671,10 +728,11 @@ public:
 		mData.resize(mWidth * mHeight, static_cast<int>(TileType::Wall));
 	}
 
-	BSP(int width, int height, int splitNum, float splitRange, float sizeMid, float sizeRange)
+	BSP(int width, int height, int splitNum, float splitRange, float sizeMid, float sizeRange, int simpleness)
 		: mWidth(width), mHeight(height), 
 		mSplitNum(splitNum), mSplitRange(splitRange), 
 		mSizeMid(sizeMid), mSizeRange(sizeRange),
+		mComplexity(simpleness),
 		mRoot(0, 0, width, height),
 		mData()
 	{
@@ -696,7 +754,7 @@ public:
 
 		split(generator);
 		mRoot.makeRoom(mSizeMid, mSizeRange, generator);
-		mRoot.merge(generator);
+		mRoot.merge(mComplexity, generator);
 		mRoot.fillData(mWidth, mData);
 	}
 
@@ -704,6 +762,8 @@ public:
 
 	int getWidth() const { return mWidth; }
 	int getHeight() const { return mHeight; }
+
+	int getComplexity() const { return mComplexity; }
 
 	void setWidth(int width) 
 	{
@@ -721,6 +781,8 @@ public:
 	void setSplitRange(float range) { mSplitRange = range; }
 	void setSizeMid(float sizeMid) { mSizeMid = sizeMid; }
 	void setSizeRange(float sizeRange) { mSizeRange = sizeRange; }
+
+	void setComplexity(int complexity) { mComplexity = complexity; }
 
 	void toTextFile(const std::string& path, std::function<char(int)> outputFunc) const;
 
@@ -757,6 +819,7 @@ private:
 	int mWidth = 100;
 	int mHeight = 100;
 	int mSplitNum = 6;
+	int mComplexity = 1;
 	float mSplitRange = 0.2f;
 	float mSizeMid = 0.6f;
 	float mSizeRange = 0.2f;
