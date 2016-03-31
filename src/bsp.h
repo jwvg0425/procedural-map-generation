@@ -199,10 +199,6 @@ public:
 			mRightChild->getSideRoom(SideType::Top, rightCand);
 		}
 
-		std::vector<Point> hallways;
-
-		getAllHallways(hallways);
-
 		//이미 연결된 방이 하나라도 있다면 pass
 		bool alreadyConnected = false;
 		for (auto& leftRoom : leftCand)
@@ -221,7 +217,7 @@ public:
 		if (alreadyConnected)
 			return;
 
-		connect(complexity, leftCand, rightCand, hallways, generator);
+		connect(complexity, leftCand, rightCand, generator);
 	}
 
 	bool hasChild() const
@@ -245,6 +241,40 @@ private:
 	void getSideRoom(SideType type, OUT std::vector<Room*>& rooms);
 	void getAllRooms(OUT std::vector<Rectangle>& rooms);
 	void getAllHallways(OUT std::vector<Point>& hallways);
+	Point getDoorNextPos(const Point& door, const Room& room);
+
+	bool isConnect(Point begin, Point end,
+		const std::vector<Point>& hallways, std::vector<Point>& visited);
+
+	bool isContainPoint(const std::vector<Rectangle>& rects, const Point& point)
+	{
+		return std::any_of(rects.begin(), rects.end(), [&point](const Rectangle& r)
+		{
+			return r.isContain(point);
+		});
+	}
+
+	bool isContainPoint(const std::vector<Rectangle>& rects, int x, int y)
+	{
+		return isContainPoint(rects, { x, y });
+	}
+
+	bool isContainPoint(const std::vector<Point>& points, const Point& point)
+	{
+		return std::any_of(points.begin(), points.end(), [&point](const Point& p)
+		{
+			return p == point;
+		});
+	}
+
+	bool isContainPoint(const std::vector<Point>& points, int x, int y)
+	{
+		return isContainPoint(points, { x, y });
+	}
+
+	bool isValidHallpos(const Point& pos, SideType side,
+		Rectangle area, const std::vector<Rectangle>& rooms,
+		const std::vector<Point>& otherHall, const std::vector<Point>& visited);
 
 	//너비 분할. 분할 후 너비가 LEAF_MINIMUM_SIZE 보다 작은 부분이 존재할 경우 false 리턴.
 	template<typename RandomGenerator>
@@ -285,21 +315,24 @@ private:
 	}
 
 	template<typename RandomGenerator>
-	void connect(int complexity,
-		const std::vector<Room*>& leftCand, const std::vector<Room*>& rightCand, 
-		std::vector<Point>& hallways, RandomGenerator& generator)
+	void connect(int complexity, const std::vector<Room*>& leftCand, const std::vector<Room*>& rightCand, 
+		RandomGenerator& generator)
 	{
+		std::vector<Point> hallways;
+		getAllHallways(hallways);
+
+		std::vector<Rectangle> rooms;
+		getAllRooms(rooms);
+
 		Point beginDoor;
 		Point endDoor;
 		Point beginHall, endHall;
 		std::vector<Point> visited;
-		std::vector<Rectangle> rooms;
+		
 		Rectangle area;
 		int beginRoomIdx;
 		int endRoomIdx;
 		int prevSize = hallways.size();
-
-		getAllRooms(rooms);
 
 		do
 		{
@@ -310,6 +343,7 @@ private:
 			beginRoomIdx = beginDist(generator);
 			auto& begin = *leftCand[beginRoomIdx];
 
+			//마찬가지로 rightCand 중에 방 하나 골라서 끝 방으로 정함.
 			std::uniform_int_distribution<int> endDist(0, rightCand.size() - 1);
 			endRoomIdx = endDist(generator);
 			auto& end = *rightCand[endRoomIdx];
@@ -328,107 +362,13 @@ private:
 			int aheight = std::max(beginHall.mY, endHall.mY) - ay + 3;
 			area = Rectangle(ax, ay, awidth, aheight);
 
+			//연결 성공할 때까지 랜덤하게 바꿔가면서 계속 시도.
 		} while (!isConnect(beginHall, endHall, hallways, visited) &&
 			!makeHallway(beginHall, endHall, area, complexity, rooms, visited, hallways, generator));
+		//이미 두 방을 연결하는 복도가 존재하거나, 두 방 사이에 복도를 만드는 것에 성공하면 빠져나옴.
 
 		leftCand[beginRoomIdx]->mDoors.push_back(beginDoor);
 		rightCand[endRoomIdx]->mDoors.push_back(endDoor);
-	}
-
-	Point getDoorNextPos(const Point& door, const Room& room)
-	{
-		int dx, dy;
-		Point nextPos;
-
-		if (mIsWidthSplit)
-		{
-			if (door.mY == room.mY)
-			{
-				dx = 0; dy = -1;
-			}
-			else if (door.mX == room.getRight())
-			{
-				dx = 1; dy = 0;
-			}
-			else
-			{
-				dx = 0; dy = 1;
-			}
-		}
-		else
-		{
-			if (door.mX == room.mX)
-			{
-				dx = -1; dy = 0;
-			}
-			else if (door.mY == room.getBottom())
-			{
-				dx = 0; dy = 1;
-			}
-			else
-			{
-				dx = 1; dy = 0;
-			}
-		}
-
-		nextPos.mX = door.mX + dx;
-		nextPos.mY = door.mY + dy;
-
-		return nextPos;
-
-	}
-
-	bool isConnect(Point begin, Point end, const std::vector<Point>& hallways, std::vector<Point>& visited)
-	{
-		if (begin == end)
-			return true;
-
-		visited.push_back(begin);
-
-		std::vector<Point> cand;
-
-		cand.emplace_back(begin.mX - 1, begin.mY);
-		cand.emplace_back(begin.mX, begin.mY - 1);
-		cand.emplace_back(begin.mX + 1, begin.mY);
-		cand.emplace_back(begin.mX, begin.mY + 1);
-
-
-		for (auto& c : cand)
-		{
-			if (!isContainPoint(visited, c) && isContainPoint(hallways, c))
-			{
-				if (isConnect(c, end, hallways, visited))
-					return true;
-			}
-		}
-
-		return false;
-	}
-
-	bool isContainPoint(const std::vector<Rectangle>& rects, const Point& point)
-	{
-		return std::any_of(rects.begin(), rects.end(), [&point](const Rectangle& r)
-		{
-			return r.isContain(point);
-		});
-	}
-
-	bool isContainPoint(const std::vector<Rectangle>& rects, int x, int y)
-	{
-		return isContainPoint(rects, { x, y });
-	}
-
-	bool isContainPoint(const std::vector<Point>& points, const Point& point)
-	{
-		return std::any_of(points.begin(), points.end(), [&point](const Point& p)
-		{
-			return p == point;
-		});
-	}
-
-	bool isContainPoint(const std::vector<Point>& points, int x, int y)
-	{
-		return isContainPoint(points, { x, y });
 	}
 
 	//dfs 기반으로 빈 공간을 탐색하며 복도를 생성함.
@@ -452,59 +392,24 @@ private:
 		}
 
 		//주변 4 방향 테스트.
+		
 		std::vector<Point> cand;
 		Point left(begin.mX - 1, begin.mY);
 		Point up(begin.mX, begin.mY - 1);
 		Point right(begin.mX + 1, begin.mY);
 		Point down(begin.mX, begin.mY + 1);
 
-		if (!isContainPoint(rooms, left) &&
-			!isContainPoint(visited, left))
-		{
-			if (isContainPoint(otherHall, left) ||
-				(area.isContain(left) &&
-				!isContainPoint(otherHall, left.mX, left.mY - 1) &&
-				!isContainPoint(otherHall, left.mX, left.mY + 1)))
-			{
+		if (isValidHallpos(left, SideType::Left, area, rooms, otherHall, visited))
 				cand.push_back(left);
-			}
-		}
 
-		if (!isContainPoint(rooms, up) &&
-			!isContainPoint(visited, up))
-		{
-			if (isContainPoint(otherHall, up) ||
-				(area.isContain(up) &&
-				!isContainPoint(otherHall, up.mX - 1, up.mY) &&
-				!isContainPoint(otherHall, up.mX + 1, up.mY)))
-			{
-				cand.push_back(up);
-			}
-		}
+		if (isValidHallpos(up, SideType::Top, area, rooms, otherHall, visited))
+			cand.push_back(up);
 
-		if (!isContainPoint(rooms, right) &&
-			!isContainPoint(visited, right))
-		{
-			if (isContainPoint(otherHall, right) ||
-				(area.isContain(right) &&
-				!isContainPoint(otherHall, right.mX, right.mY - 1) &&
-				!isContainPoint(otherHall, right.mX, right.mY + 1)))
-			{
-				cand.push_back(right);
-			}
-		}
+		if (isValidHallpos(right, SideType::Right, area, rooms, otherHall, visited))
+			cand.push_back(right);
 
-		if (!isContainPoint(rooms, down) &&
-			!isContainPoint(visited, down))
-		{
-			if (isContainPoint(otherHall, down) ||
-				(area.isContain(down) &&
-				!isContainPoint(otherHall, down.mX - 1, down.mY) &&
-				!isContainPoint(otherHall, down.mX + 1, down.mY)))
-			{
-				cand.push_back(down);
-			}
-		}
+		if (isValidHallpos(down, SideType::Bottom, area, rooms, otherHall, visited))
+			cand.push_back(down);
 
 		std::sort(cand.begin(), cand.end(), [&end](const Point& lhs, const Point& rhs)
 		{
@@ -514,6 +419,7 @@ private:
 			return l < r;
 		});
 
+		//정렬된 위치에서, 복잡도에 따라 배열의 일부분만 랜덤하게 섞는다.
 		int offset = std::max<int>(0, cand.size() - complexity - 1);
 
 		std::shuffle(cand.begin() + offset, cand.end(), generator);
@@ -530,6 +436,8 @@ private:
 		return false;
 	}
 
+
+	//주어진 방에서 랜덤하게 문이 될 수 있는 위치 하나를 반환한다.
 	template<typename RandomGenerator>
 	Point getRandomDoor(const Room& room, bool isBegin, RandomGenerator& generator)
 	{
@@ -537,108 +445,82 @@ private:
 
 		if (mIsWidthSplit)
 		{
-			for (int x = room.mX + 1; x < room.getRight(); x++)
+			int ys[2] = { room.mY, room.getBottom() };
+
+			for (int idx = 0; idx < 2; idx++)
 			{
-				if (isContainPoint(room.mDoors, { x - 1, room.mY }) ||
-					isContainPoint(room.mDoors, { x + 1, room.mY }))
+				int y = ys[idx];
+
+				for (int x = room.mX + 1; x < room.getRight(); x++)
+				{
+					//문이 연달아 2개가 붙어 있으면 이상함.
+					if (isContainPoint(room.mDoors, { x - 1, y }) ||
+						isContainPoint(room.mDoors, { x + 1, y }))
+					{
+						continue;
+					}
+
+					cand.emplace_back(x, y);
+				}
+			}
+
+			int x;
+
+			if (isBegin)
+				x = room.getRight();
+			else
+				x = room.mX;
+
+			for (int y = room.mY + 1; y < room.getBottom(); y++)
+			{
+				//문이 연달아 2개가 붙어 있으면 이상함.
+				if (isContainPoint(room.mDoors, { x, y - 1 }) ||
+					isContainPoint(room.mDoors, { x, y + 1 }))
 				{
 					continue;
 				}
 
-				cand.emplace_back(x, room.mY);
+				cand.emplace_back(x, y);
 			}
+		}
+		else // x,y 대칭이고 코드는 동일.
+		{
+			int xs[2] = { room.mX, room.getRight() };
+
+			for (int idx = 0; idx < 2; idx++)
+			{
+				int x = xs[idx];
+
+				for (int y = room.mY + 1; y < room.getBottom(); y++)
+				{
+					//문이 연달아 2개가 붙어 있으면 이상함.
+					if (isContainPoint(room.mDoors, { x, y - 1 }) ||
+						isContainPoint(room.mDoors, { x, y + 1 }))
+					{
+						continue;
+					}
+
+					cand.emplace_back(x, y);
+				}
+			}
+
+			int y;
+
+			if (isBegin)
+				y = room.getBottom();
+			else
+				y = room.mY;
+
 			for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
 			{
-				if (isContainPoint(room.mDoors, { x - 1, room.getBottom() }) ||
-					isContainPoint(room.mDoors, { x + 1, room.getBottom() }))
+				//문이 연달아 2개가 붙어 있으면 이상함.
+				if (isContainPoint(room.mDoors, { x - 1, y }) ||
+					isContainPoint(room.mDoors, { x + 1, y }))
 				{
 					continue;
 				}
 
-				cand.emplace_back(x, room.mY + room.mHeight - 1);
-			}
-		}
-		else
-		{
-			for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
-			{
-				if (isContainPoint(room.mDoors, { room.mX, y - 1 }) ||
-					isContainPoint(room.mDoors, { room.mX, y + 1 }))
-				{
-					continue;
-				}
-
-				cand.emplace_back(room.mX, y);
-			}
-
-			for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
-			{
-				if (isContainPoint(room.mDoors, { room.getRight(), y - 1 }) ||
-					isContainPoint(room.mDoors, { room.getRight(), y + 1 }))
-				{
-					continue;
-				}
-
-				cand.emplace_back(room.getRight(), y);
-			}
-		}
-
-		if (mIsWidthSplit)
-		{
-			if (isBegin)
-			{
-				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
-				{
-					if (isContainPoint(room.mDoors, { room.getRight(), y - 1 }) ||
-						isContainPoint(room.mDoors, { room.getRight(), y + 1 }))
-					{
-						continue;
-					}
-
-					cand.emplace_back(room.getRight(), y);
-				}
-			}
-			else
-			{
-				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
-				{
-					if (isContainPoint(room.mDoors, { room.mX, y - 1 }) ||
-						isContainPoint(room.mDoors, { room.mX, y + 1 }))
-					{
-						continue;
-					}
-
-					cand.emplace_back(room.mX, y);
-				}
-			}
-		}
-		else
-		{
-			if (isBegin)
-			{
-				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
-				{
-					if (isContainPoint(room.mDoors, { x - 1, room.getBottom() }) ||
-						isContainPoint(room.mDoors, { x + 1, room.getBottom() }))
-					{
-						continue;
-					}
-
-					cand.emplace_back(x, room.getBottom());
-				}
-			}
-			else
-			{
-				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
-				{
-					if (isContainPoint(room.mDoors, { x - 1, room.mY }) ||
-						isContainPoint(room.mDoors, { x + 1, room.mY }))
-					{
-						continue;
-					}
-
-					cand.emplace_back(x, room.mY);
-				}
+				cand.emplace_back(x, y);
 			}
 		}
 
@@ -668,11 +550,11 @@ public:
 		mData.resize(mWidth * mHeight, static_cast<int>(TileType::Wall));
 	}
 
-	BSP(int width, int height, int splitNum, float splitRange, float sizeMid, float sizeRange, int simpleness)
+	BSP(int width, int height, int splitNum, float splitRange, float sizeMid, float sizeRange, int complexity)
 		: mWidth(width), mHeight(height), 
 		mSplitNum(splitNum), mSplitRange(splitRange), 
 		mSizeMid(sizeMid), mSizeRange(sizeRange),
-		mComplexity(simpleness),
+		mComplexity(complexity),
 		mRoot(0, 0, width, height),
 		mData()
 	{

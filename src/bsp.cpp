@@ -105,6 +105,115 @@ void pmg::Leaf::getAllHallways(OUT std::vector<Point>& hallways)
 	}
 }
 
+pmg::Point pmg::Leaf::getDoorNextPos(const Point & door, const Room & room)
+{
+	int dx, dy;
+	Point nextPos;
+
+	if (mIsWidthSplit)
+	{
+		if (door.mY == room.mY)
+		{
+			dx = 0; dy = -1;
+		}
+		else if (door.mX == room.getRight())
+		{
+			dx = 1; dy = 0;
+		}
+		else
+		{
+			dx = 0; dy = 1;
+		}
+	}
+	else
+	{
+		if (door.mX == room.mX)
+		{
+			dx = -1; dy = 0;
+		}
+		else if (door.mY == room.getBottom())
+		{
+			dx = 0; dy = 1;
+		}
+		else
+		{
+			dx = 1; dy = 0;
+		}
+	}
+
+	nextPos.mX = door.mX + dx;
+	nextPos.mY = door.mY + dy;
+
+	return nextPos;
+
+}
+
+bool pmg::Leaf::isConnect(Point begin, Point end,
+	const std::vector<Point>& hallways, std::vector<Point>& visited)
+{
+	if (begin == end)
+		return true;
+
+	visited.push_back(begin);
+
+	std::vector<Point> cand;
+
+	cand.emplace_back(begin.mX - 1, begin.mY);
+	cand.emplace_back(begin.mX, begin.mY - 1);
+	cand.emplace_back(begin.mX + 1, begin.mY);
+	cand.emplace_back(begin.mX, begin.mY + 1);
+
+
+	for (auto& c : cand)
+	{
+		if (!isContainPoint(visited, c) && isContainPoint(hallways, c))
+		{
+			if (isConnect(c, end, hallways, visited))
+				return true;
+		}
+	}
+
+	return false;
+}
+bool pmg::Leaf::isValidHallpos(const Point & pos, SideType side, Rectangle area,
+	const std::vector<Rectangle>& rooms, const std::vector<Point>& otherHall, 
+	const std::vector<Point>& visited)
+{
+	int dx, dy;
+
+	switch (side)
+	{
+	case SideType::Top:
+	case SideType::Bottom:
+		dx = 1;
+		dy = 0;
+		break;
+	case SideType::Left:
+	case SideType::Right:
+		dx = 0;
+		dy = 1;
+		break;
+	}
+
+	//방과 겹치거나 방문했던 곳 또 방문하면 안 되므로 이 두경우를 먼저 체크해서 제외한다.
+	if (isContainPoint(rooms, pos) || isContainPoint(visited, pos))
+		return false;
+
+	//이미 존재하는 복도 위에 있는 경우 진행한다(해당 복도와 연결되는 경우)
+	if (isContainPoint(otherHall, pos))
+		return true;
+
+	//그 외의 경우 주어진 범위 내에 있어야하며, 진행하는 방향 양쪽에 복도가 없어야한다(두께를 1로 유지하기 위해)
+	if (area.isContain(pos) &&
+		!isContainPoint(otherHall, pos.mX + dx, pos.mY + dy) &&
+		!isContainPoint(otherHall, pos.mX - dx, pos.mY - dy))
+	{
+		return true;
+	}
+
+	return false;
+}
+
 bool pmg::Rectangle::isConnect(const Rectangle & other) const
 {
 	if (mX == other.getRight() + 1 ||
