@@ -32,25 +32,12 @@ enum class TileType
 
 struct Point
 {
-	Point()
-		: mX(0), mY(0)
-	{
-	}
+	Point() : mX(0), mY(0) { }
+	Point(int x, int y) :mX(x), mY(y) {	}
 
-	Point(int x, int y)
-		:mX(x), mY(y)
-	{
-	}
+	bool operator ==(const Point& rhs) const { return mX == rhs.mX && mY == rhs.mY; }
 
-	bool operator ==(const Point& rhs) const
-	{
-		return mX == rhs.mX && mY == rhs.mY;
-	}
-
-	bool operator !=(const Point& rhs) const
-	{
-		return !(*this == rhs);
-	}
+	bool operator !=(const Point& rhs) const { return !(*this == rhs); }
 
 	int mX;
 	int mY;
@@ -58,43 +45,31 @@ struct Point
 
 struct Rectangle
 {
-	Rectangle()
-		: mX(0), mY(0), mWidth(0), mHeight(0)
-	{
-	}
+	Rectangle() : mX(0), mY(0), mWidth(0), mHeight(0) { }
+	Rectangle(int x, int y, int width, int height) : mX(x), mY(y), mWidth(width), mHeight(height) { }
 
-	Rectangle(int x, int y, int width, int height)
-		: mX(x), mY(y), mWidth(width), mHeight(height)
-	{
-	}
+	bool isConnect(const Rectangle& other) const;
+	bool isContain(const Point& pos) const;
+	bool isOverlap(const Rectangle& other) const;
+
+	int getRight() const { return mX + mWidth - 1; }
+	int getBottom() const { return mY + mHeight - 1; }
 
 	int mX;
 	int mY;
 	int mWidth;
 	int mHeight;
-
-	bool isConnect(const Rectangle& other) const;
-
-	bool isContain(const Point& pos) const;
-
-	bool isOverlap(const Rectangle& other) const;
 };
 
 struct Room : Rectangle
 {
-	Room() : Rectangle(), mIsVisited(false)
-	{
-	}
-
-	Room(int x, int y, int width, int height)
-		: Rectangle(x, y, width, height), mIsVisited(false)
-	{
-	}
-
+	Room() : Rectangle(), mIsVisited(false) { }
+	Room(int x, int y, int width, int height) : Rectangle(x, y, width, height), mIsVisited(false) { }
+	
 	void fillData(int width, std::vector<int>& data);
-
+	
 	bool isOnLine(int pos, SideType type) const;
-
+	
 	std::vector<Room*> getAllRooms();
 
 	std::vector<Room*> mConnectedRooms;
@@ -105,7 +80,7 @@ struct Room : Rectangle
 class Leaf
 {
 public:
-	Leaf(int x, int y, int width, int height)
+	Leaf(int x, int y, int width, int height) 
 		: mInfo(x, y, width, height), mRoom(), mLeftChild(nullptr), mRightChild(nullptr)
 	{
 	}
@@ -128,15 +103,11 @@ public:
 	void split(float splitRange, RandomGenerator& generator)
 	{
 		if (splitRange < 0.1f || splitRange > 0.4f)
-		{
 			return;
-		}
 
 		//이미 분할된 노드
 		if (hasChild())
-		{
 			return;
-		}
 
 		std::uniform_int_distribution<int> dirDist(0, 1);
 
@@ -162,9 +133,7 @@ public:
 	void makeRoom(float sizeMid, float sizeRange, RandomGenerator& generator)
 	{
 		if (sizeMid - sizeRange < 0.0f || sizeMid + sizeRange > 1.0f)
-		{
 			return;
-		}
 
 		if (hasChild())
 		{
@@ -187,8 +156,8 @@ public:
 		if (roomHeight < ROOM_MINIMUM_SIZE)
 			roomHeight = ROOM_MINIMUM_SIZE;
 
-		std::uniform_int_distribution<int> xDist(mInfo.mX, mInfo.mX + mInfo.mWidth - roomWidth);
-		std::uniform_int_distribution<int> yDist(mInfo.mY, mInfo.mY + mInfo.mHeight - roomHeight);
+		std::uniform_int_distribution<int> xDist(mInfo.mX, mInfo.getRight() + 1 - roomWidth);
+		std::uniform_int_distribution<int> yDist(mInfo.mY, mInfo.getBottom() + 1 - roomHeight);
 
 		mRoom.mX = xDist(generator);
 		mRoom.mY = yDist(generator);
@@ -203,20 +172,14 @@ public:
 	{
 		//연결할 자식이 없다.
 		if (!hasChild())
-		{
 			return;
-		}
 
 		// 자식의 자식 먼저 연결
 		if (mLeftChild != nullptr)
-		{
 			mLeftChild->merge(complexity, generator);
-		}
 
 		if (mRightChild != nullptr)
-		{
 			mRightChild->merge(complexity, generator);
-		}
 
 		//두 자식 연결. 서로 맞닿은 위치에서의 노드들을 모두 구해서, 그 중 랜덤한 두 방을 연결
 		if (mLeftChild == nullptr || mRightChild == nullptr)
@@ -356,72 +319,8 @@ private:
 			endDoor = getRandomDoor(end, false, generator);
 			visited.clear();
 
-			int dx, dy;
-
-			if (mIsWidthSplit)
-			{
-				if (beginDoor.mY == begin.mY)
-				{
-					dx = 0; dy = -1;
-				}
-				else if (beginDoor.mX == begin.mX + begin.mWidth - 1)
-				{
-					dx = 1; dy = 0;
-				}
-				else
-				{
-					dx = 0; dy = 1;
-				}
-				beginHall.mX = beginDoor.mX + dx;
-				beginHall.mY = beginDoor.mY + dy;
-
-				if (endDoor.mY == end.mY)
-				{
-					dx = 0; dy = -1;
-				}
-				else if (endDoor.mX == end.mX)
-				{
-					dx = -1; dy = 0;
-				}
-				else
-				{
-					dx = 0; dy = 1;
-				}
-				endHall.mX = endDoor.mX + dx;
-				endHall.mY = endDoor.mY + dy;
-			}
-			else
-			{
-				if (beginDoor.mX == begin.mX)
-				{
-					dx = -1; dy = 0;
-				}
-				else if (beginDoor.mY == begin.mY + begin.mHeight - 1)
-				{
-					dx = 0; dy = 1;
-				}
-				else
-				{
-					dx = 1; dy = 0;
-				}
-				beginHall.mX = beginDoor.mX + dx;
-				beginHall.mY = beginDoor.mY + dy;
-
-				if (endDoor.mX == end.mX)
-				{
-					dx = -1; dy = 0;
-				}
-				else if (endDoor.mY == end.mY)
-				{
-					dx = 0; dy = -1;
-				}
-				else
-				{
-					dx = 1; dy = 0;
-				}
-				endHall.mX = endDoor.mX + dx;
-				endHall.mY = endDoor.mY + dy;
-			}
+			beginHall = getDoorNextPos(beginDoor, begin);
+			endHall = getDoorNextPos(endDoor, end);
 
 			int ax = std::min(beginHall.mX, endHall.mX) - 2;
 			int ay = std::min(beginHall.mY, endHall.mY) - 2;
@@ -434,6 +333,49 @@ private:
 
 		leftCand[beginRoomIdx]->mDoors.push_back(beginDoor);
 		rightCand[endRoomIdx]->mDoors.push_back(endDoor);
+	}
+
+	Point getDoorNextPos(const Point& door, const Room& room)
+	{
+		int dx, dy;
+		Point nextPos;
+
+		if (mIsWidthSplit)
+		{
+			if (door.mY == room.mY)
+			{
+				dx = 0; dy = -1;
+			}
+			else if (door.mX == room.getRight())
+			{
+				dx = 1; dy = 0;
+			}
+			else
+			{
+				dx = 0; dy = 1;
+			}
+		}
+		else
+		{
+			if (door.mX == room.mX)
+			{
+				dx = -1; dy = 0;
+			}
+			else if (door.mY == room.getBottom())
+			{
+				dx = 0; dy = 1;
+			}
+			else
+			{
+				dx = 1; dy = 0;
+			}
+		}
+
+		nextPos.mX = door.mX + dx;
+		nextPos.mY = door.mY + dy;
+
+		return nextPos;
+
 	}
 
 	bool isConnect(Point begin, Point end, const std::vector<Point>& hallways, std::vector<Point>& visited)
@@ -495,9 +437,7 @@ private:
 		const std::vector<Rectangle>& rooms, std::vector<Point>& visited, std::vector<Point>& otherHall,
 		RandomGenerator& generator)
 	{
-
-		if (begin.mX < mInfo.mX || begin.mY < mInfo.mY ||
-			begin.mX >= mInfo.mX + mInfo.mWidth || begin.mY >= mInfo.mY + mInfo.mHeight)
+		if (!mInfo.isContain(begin))
 		{
 			return false;
 		}
@@ -597,7 +537,7 @@ private:
 
 		if (mIsWidthSplit)
 		{
-			for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
+			for (int x = room.mX + 1; x < room.getRight(); x++)
 			{
 				if (isContainPoint(room.mDoors, { x - 1, room.mY }) ||
 					isContainPoint(room.mDoors, { x + 1, room.mY }))
@@ -609,8 +549,8 @@ private:
 			}
 			for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
 			{
-				if (isContainPoint(room.mDoors, { x - 1, room.mY + room.mHeight - 1 }) ||
-					isContainPoint(room.mDoors, { x + 1, room.mY + room.mHeight - 1 }))
+				if (isContainPoint(room.mDoors, { x - 1, room.getBottom() }) ||
+					isContainPoint(room.mDoors, { x + 1, room.getBottom() }))
 				{
 					continue;
 				}
@@ -633,13 +573,13 @@ private:
 
 			for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
 			{
-				if (isContainPoint(room.mDoors, { room.mX + room.mWidth - 1, y - 1 }) ||
-					isContainPoint(room.mDoors, { room.mX + room.mWidth - 1, y + 1 }))
+				if (isContainPoint(room.mDoors, { room.getRight(), y - 1 }) ||
+					isContainPoint(room.mDoors, { room.getRight(), y + 1 }))
 				{
 					continue;
 				}
 
-				cand.emplace_back(room.mX + room.mWidth - 1, y);
+				cand.emplace_back(room.getRight(), y);
 			}
 		}
 
@@ -649,13 +589,13 @@ private:
 			{
 				for (int y = room.mY + 1; y < room.mY + room.mHeight - 1; y++)
 				{
-					if (isContainPoint(room.mDoors, { room.mX + room.mWidth - 1, y - 1 }) ||
-						isContainPoint(room.mDoors, { room.mX + room.mWidth - 1, y + 1 }))
+					if (isContainPoint(room.mDoors, { room.getRight(), y - 1 }) ||
+						isContainPoint(room.mDoors, { room.getRight(), y + 1 }))
 					{
 						continue;
 					}
 
-					cand.emplace_back(room.mX + room.mWidth - 1, y);
+					cand.emplace_back(room.getRight(), y);
 				}
 			}
 			else
@@ -678,13 +618,13 @@ private:
 			{
 				for (int x = room.mX + 1; x < room.mX + room.mWidth - 1; x++)
 				{
-					if (isContainPoint(room.mDoors, { x - 1, room.mY + room.mHeight - 1 }) ||
-						isContainPoint(room.mDoors, { x + 1, room.mY + room.mHeight - 1 }))
+					if (isContainPoint(room.mDoors, { x - 1, room.getBottom() }) ||
+						isContainPoint(room.mDoors, { x + 1, room.getBottom() }))
 					{
 						continue;
 					}
 
-					cand.emplace_back(x, room.mY + room.mHeight - 1);
+					cand.emplace_back(x, room.getBottom());
 				}
 			}
 			else

@@ -107,18 +107,18 @@ void pmg::Leaf::getAllHallways(OUT std::vector<Point>& hallways)
 
 bool pmg::Rectangle::isConnect(const Rectangle & other) const
 {
-	if (mX == other.mX + other.mWidth ||
-		other.mX == mX + mWidth)
+	if (mX == other.getRight() + 1 ||
+		other.mX == getRight() + 1)
 	{
-		return (mY >= other.mY && mY < other.mY + other.mHeight - 2) ||
-			(other.mY >= mY && other.mY < mY + mHeight - 2);
+		return (mY >= other.mY && mY < other.getBottom() - 1) ||
+			(other.mY >= mY && other.mY < getBottom() - 1);
 	}
 
 	if (mY == other.mY + other.mHeight ||
 		other.mY == mY + mHeight)
 	{
-		return (mX >= other.mX && mX < other.mX + other.mWidth - 2) ||
-			(other.mX >= mX && other.mX < mX + mHeight - 2);
+		return (mX >= other.mX && mX < other.getRight() - 1) ||
+			(other.mX >= mX && other.mX < getRight() - 1);
 	}
 
 	return false;
@@ -126,14 +126,14 @@ bool pmg::Rectangle::isConnect(const Rectangle & other) const
 
 bool pmg::Rectangle::isContain(const Point & pos) const
 {
-	return pos.mX >= mX && pos.mX < mX + mWidth &&
-		pos.mY >= mY && pos.mY < mY + mHeight;
+	return pos.mX >= mX && pos.mX <= getRight() &&
+		pos.mY >= mY && pos.mY <= getBottom();
 }
 
 bool pmg::Rectangle::isOverlap(const Rectangle & other) const
 {
-	return !(mX + mWidth <= other.mX || mX >= other.mX + other.mWidth ||
-		mY + mHeight <= other.mY || mY >= other.mY + other.mHeight);
+	return !(getRight() < other.mX || mX > other.getRight() ||
+		getBottom() < other.mY || mY > other.getBottom());
 }
 
 void pmg::Room::fillData(int width, std::vector<int>& data)
@@ -147,9 +147,9 @@ void pmg::Room::fillData(int width, std::vector<int>& data)
 	{
 		const auto& room = *r;
 
-		for (int y = room.mY; y < room.mY + room.mHeight; y++)
+		for (int y = room.mY; y < room.getBottom() + 1; y++)
 		{
-			for (int x = room.mX; x < room.mX + room.mWidth; x++)
+			for (int x = room.mX; x < room.getRight() + 1; x++)
 			{
 				TileType type;
 
@@ -164,7 +164,7 @@ void pmg::Room::fillData(int width, std::vector<int>& data)
 						type = TileType::Wall;
 					}
 				}
-				else if (x == room.mX + room.mWidth - 1)
+				else if (x == room.getRight())
 				{
 					if (room.isOnLine(y, SideType::Right))
 					{
@@ -186,7 +186,7 @@ void pmg::Room::fillData(int width, std::vector<int>& data)
 						type = TileType::Wall;
 					}
 				}
-				else if (y == room.mY + room.mHeight - 1)
+				else if (y == room.getBottom())
 				{
 					if (room.isOnLine(x, SideType::Bottom))
 					{
@@ -223,11 +223,11 @@ bool pmg::Room::isOnLine(int pos, SideType type) const
 	{
 	case SideType::Left:
 	case SideType::Right:
-		if (pos == mY || pos == mY + mHeight - 1)
+		if (pos == mY || pos == getBottom())
 			return false;
 	case SideType::Top:
 	case SideType::Bottom:
-		if (pos == mX || pos == mX + mWidth - 1)
+		if (pos == mX || pos == getRight())
 			return false;
 	}
 
@@ -239,40 +239,40 @@ bool pmg::Room::isOnLine(int pos, SideType type) const
 		switch (type)
 		{
 		case SideType::Left:
-			if (room.mX + room.mWidth != mX)
+			if (room.getRight() + 1 != mX)
 			{
 				continue;
 			}
 			first = room.mY + 1;
-			last = room.mY + room.mHeight - 1;
+			last = room.getBottom() - 1;
 			break;
 		case SideType::Right:
-			if (mX + mWidth != room.mX)
+			if (getRight() + 1!= room.mX)
 			{
 				continue;
 			}
 			first = room.mY + 1;
-			last = room.mY + room.mHeight - 1;
+			last = room.getBottom() - 1;
 			break;
 		case SideType::Top:
-			if (room.mY + room.mHeight != mY)
+			if (room.getBottom() + 1 != mY)
 			{
 				continue;
 			}
 			first = room.mX + 1;
-			last = room.mX + room.mWidth - 1;
+			last = room.getRight() - 1;
 			break;
 		case SideType::Bottom:
-			if (mY + mHeight != room.mY)
+			if (getBottom() + 1 != room.mY)
 			{
 				continue;
 			}
 			first = room.mX + 1;
-			last = room.mX + room.mWidth - 1;
+			last = room.getRight() - 1;
 			break;
 		}
 
-		if (pos >= first && pos < last)
+		if (pos >= first && pos <= last)
 			return true;
 	}
 
