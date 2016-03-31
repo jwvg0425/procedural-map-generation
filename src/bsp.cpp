@@ -77,6 +77,34 @@ void pmg::Leaf::getSideRoom(SideType type, OUT std::vector<Room*>& rooms)
 	}
 }
 
+void pmg::Leaf::getAllRooms(OUT std::vector<Rectangle>& rooms)
+{
+	if (!hasChild())
+	{
+		rooms.emplace_back(mRoom.mX, mRoom.mY, mRoom.mWidth, mRoom.mHeight);
+	}
+
+	if (mLeftChild != nullptr)
+		mLeftChild->getAllRooms(rooms);
+
+	if (mRightChild != nullptr)
+		mRightChild->getAllRooms(rooms);
+}
+
+void pmg::Leaf::getAllHallways(OUT std::vector<Point>& hallways)
+{
+	if (mLeftChild != nullptr)
+		mLeftChild->getAllHallways(hallways);
+
+	if (mRightChild != nullptr)
+		mRightChild->getAllHallways(hallways);
+
+	for (auto& h : mHallways)
+	{
+		hallways.push_back(h);
+	}
+}
+
 bool pmg::Rectangle::isConnect(const Rectangle & other) const
 {
 	if (mX == other.mX + other.mWidth ||
@@ -102,12 +130,17 @@ bool pmg::Rectangle::isContain(const Point & pos) const
 		pos.mY >= mY && pos.mY < mY + mHeight;
 }
 
+bool pmg::Rectangle::isOverlap(const Rectangle & other) const
+{
+	return !(mX + mWidth <= other.mX || mX >= other.mX + other.mWidth ||
+		mY + mHeight <= other.mY || mY >= other.mY + other.mHeight);
+}
+
 void pmg::Room::fillData(int width, std::vector<int>& data)
 {
 	if (mIsVisited)
 		return;
 	
-	mIsVisited = true;
 	std::vector<Room*> allRooms = getAllRooms();
 
 	for (auto r : allRooms)
@@ -118,60 +151,68 @@ void pmg::Room::fillData(int width, std::vector<int>& data)
 		{
 			for (int x = room.mX; x < room.mX + room.mWidth; x++)
 			{
+				TileType type;
+
 				if (x == room.mX)
 				{
 					if (room.isOnLine(y, SideType::Left))
 					{
-						data[x + y * width] = static_cast<int>(TileType::Room);
+						type = TileType::Room;
 					}
 					else
 					{
-						data[x + y * width] = static_cast<int>(TileType::Wall);
+						type = TileType::Wall;
 					}
 				}
 				else if (x == room.mX + room.mWidth - 1)
 				{
 					if (room.isOnLine(y, SideType::Right))
 					{
-						data[x + y * width] = static_cast<int>(TileType::Room);
+						type = TileType::Room;
 					}
 					else
 					{
-						data[x + y * width] = static_cast<int>(TileType::Wall);
+						type = TileType::Wall;
 					}
 				}
 				else if (y == room.mY)
 				{
 					if (room.isOnLine(x, SideType::Top))
 					{
-						data[x + y * width] = static_cast<int>(TileType::Room);
+						type = TileType::Room;
 					}
 					else
 					{
-						data[x + y * width] = static_cast<int>(TileType::Wall);
+						type = TileType::Wall;
 					}
 				}
 				else if (y == room.mY + room.mHeight - 1)
 				{
 					if (room.isOnLine(x, SideType::Bottom))
 					{
-						data[x + y * width] = static_cast<int>(TileType::Room);
+						type = TileType::Room;
 					}
 					else
 					{
-						data[x + y * width] = static_cast<int>(TileType::Wall);
+						type = TileType::Wall;
 					}
 				}
 				else
 				{
-					data[x + y * width] = static_cast<int>(TileType::Room);
+					type = TileType::Room;
 				}
-			}
-		}
 
-		for (auto& d : room.mDoors)
-		{
-			data[d.mX + d.mY*width] = static_cast<int>(TileType::Door);
+				for (auto& d : room.mDoors)
+				{
+					if (x == d.mX && y == d.mY)
+					{
+						type = TileType::Door;
+						break;
+					}
+				}
+
+				data[x + y * width] = static_cast<int>(type);
+			}
 		}
 	}
 }
