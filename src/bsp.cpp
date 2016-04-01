@@ -110,35 +110,21 @@ pmg::Point pmg::Leaf::getDoorNextPos(const Point & door, const Room & room)
 	int dx, dy;
 	Point nextPos;
 
-	if (mIsWidthSplit)
+	if (door.mY == room.mY)
 	{
-		if (door.mY == room.mY)
-		{
-			dx = 0; dy = -1;
-		}
-		else if (door.mX == room.getRight())
-		{
-			dx = 1; dy = 0;
-		}
-		else
-		{
-			dx = 0; dy = 1;
-		}
+		dx = 0; dy = -1;
 	}
-	else
+	else if (door.mX == room.getRight())
 	{
-		if (door.mX == room.mX)
-		{
-			dx = -1; dy = 0;
-		}
-		else if (door.mY == room.getBottom())
-		{
-			dx = 0; dy = 1;
-		}
-		else
-		{
-			dx = 1; dy = 0;
-		}
+		dx = 1; dy = 0;
+	}
+	else if (door.mY == room.getBottom())
+	{
+		dx = 0; dy = 1;
+	}
+	else // door.mX == room.mX
+	{
+		dx = -1; dy = 0;
 	}
 
 	nextPos.mX = door.mX + dx;
