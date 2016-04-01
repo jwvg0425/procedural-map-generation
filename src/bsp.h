@@ -377,7 +377,8 @@ private:
 		const std::vector<Rectangle>& rooms, std::vector<Point>& visited, std::vector<Point>& otherHall,
 		RandomGenerator& generator)
 	{
-		if (!mInfo.isContain(begin))
+		Rectangle bound(mInfo.mX + 1, mInfo.mY + 1, mInfo.mWidth - 2, mInfo.mHeight - 2);
+		if (!bound.isContain(begin))
 		{
 			return false;
 		}
@@ -590,12 +591,14 @@ public:
 	void setWidth(int width) 
 	{
 		mWidth = width;
+		mRoot.reset(0, 0, mWidth, mHeight);
 		mData.resize(mWidth*mHeight, static_cast<int>(TileType::Wall));
 	}
 
 	void setHeight(int height)
 	{
 		mHeight = height;
+		mRoot.reset(0, 0, mWidth, mHeight);
 		mData.resize(mWidth*mHeight, static_cast<int>(TileType::Wall));
 	}
 
