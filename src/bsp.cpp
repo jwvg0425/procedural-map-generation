@@ -225,12 +225,6 @@ bool pmg::Rectangle::isContain(const Point & pos) const
 		pos.mY >= mY && pos.mY <= getBottom();
 }
 
-bool pmg::Rectangle::isOverlap(const Rectangle & other) const
-{
-	return !(getRight() < other.mX || mX > other.getRight() ||
-		getBottom() < other.mY || mY > other.getBottom());
-}
-
 void pmg::Room::fillData(int width, int height, std::vector<TileType>& data)
 {
 	if (mIsVisited)
@@ -262,68 +256,6 @@ void pmg::Room::fillData(int width, int height, std::vector<TileType>& data)
 			data[door.mX + door.mY * width] = TileType::Door;
 		}
 	}
-}
-
-bool pmg::Room::isOnLine(int pos, SideType type) const
-{
-	switch (type)
-	{
-	case SideType::Left:
-	case SideType::Right:
-		if (pos == mY || pos == getBottom())
-			return false;
-	case SideType::Top:
-	case SideType::Bottom:
-		if (pos == mX || pos == getRight())
-			return false;
-	}
-
-	for (auto r : mConnectedRooms)
-	{
-		const auto& room = *r;
-		int first, last;
-
-		switch (type)
-		{
-		case SideType::Left:
-			if (room.getRight() + 1 != mX)
-			{
-				continue;
-			}
-			first = room.mY + 1;
-			last = room.getBottom() - 1;
-			break;
-		case SideType::Right:
-			if (getRight() + 1!= room.mX)
-			{
-				continue;
-			}
-			first = room.mY + 1;
-			last = room.getBottom() - 1;
-			break;
-		case SideType::Top:
-			if (room.getBottom() + 1 != mY)
-			{
-				continue;
-			}
-			first = room.mX + 1;
-			last = room.getRight() - 1;
-			break;
-		case SideType::Bottom:
-			if (getBottom() + 1 != room.mY)
-			{
-				continue;
-			}
-			first = room.mX + 1;
-			last = room.getRight() - 1;
-			break;
-		}
-
-		if (pos >= first && pos <= last)
-			return true;
-	}
-
-	return false;
 }
 
 bool pmg::Room::isWallPos(int x, int y, int width, int height, const std::vector<Room*>& rooms)

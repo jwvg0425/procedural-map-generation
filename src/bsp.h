@@ -50,7 +50,6 @@ struct Rectangle
 
 	bool isConnect(const Rectangle& other) const;
 	bool isContain(const Point& pos) const;
-	bool isOverlap(const Rectangle& other) const;
 
 	int getRight() const { return mX + mWidth - 1; }
 	int getBottom() const { return mY + mHeight - 1; }
@@ -67,8 +66,6 @@ struct Room : Rectangle
 	Room(int x, int y, int width, int height) : Rectangle(x, y, width, height), mIsVisited(false) { }
 	
 	void fillData(int width, int height, std::vector<TileType>& data);
-	
-	bool isOnLine(int pos, SideType type) const;
 
 	bool isWallPos(int x, int y, int width, int height, const std::vector<Room*>& rooms);
 	
