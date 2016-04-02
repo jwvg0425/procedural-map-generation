@@ -1,25 +1,4 @@
 #include "bsp.h"
-#include <fstream>
-
-void pmg::BSP::toTextFile(const std::string& path, std::function<char(TileType)> outputFunc) const
-{
-	std::ofstream stream(path);
-
-	if (!stream.is_open())
-		return;
-
-	for (int y = 0; y < mHeight; y++)
-	{
-		for (int x = 0; x < mWidth; x++)
-		{
-			stream << outputFunc(mData[y*mWidth + x]);
-		}
-
-		stream << std::endl;
-	}
-
-	stream.close();
-}
 
 void pmg::Leaf::fillData(int width, int height, std::vector<TileType>& data)
 {
@@ -40,7 +19,7 @@ void pmg::Leaf::fillData(int width, int height, std::vector<TileType>& data)
 	}
 }
 
-void pmg::Leaf::getSideRoom(SideType type, OUT std::vector<Room*>& rooms)
+void pmg::Leaf::getSideRoom(Direction type, OUT std::vector<Room*>& rooms)
 {
 	if (!hasChild())
 	{
@@ -50,25 +29,25 @@ void pmg::Leaf::getSideRoom(SideType type, OUT std::vector<Room*>& rooms)
 
 	switch (type)
 	{
-	case SideType::Top:
+	case Direction::Top:
 		if (mLeftChild != nullptr)
 			mLeftChild->getSideRoom(type, rooms);
 		if (mRightChild != nullptr && mIsWidthSplit)
 			mRightChild->getSideRoom(type, rooms);
 		break;
-	case SideType::Right:
+	case Direction::Right:
 		if (mLeftChild != nullptr && !mIsWidthSplit)
 			mLeftChild->getSideRoom(type, rooms);
 		if (mRightChild != nullptr)
 			mRightChild->getSideRoom(type, rooms);
 		break;
-	case SideType::Bottom:
+	case Direction::Bottom:
 		if (mLeftChild != nullptr && mIsWidthSplit)
 			mLeftChild->getSideRoom(type, rooms);
 		if (mRightChild != nullptr)
 			mRightChild->getSideRoom(type, rooms);
 		break;
-	case SideType::Left:
+	case Direction::Left:
 		if (mLeftChild != nullptr)
 			mLeftChild->getSideRoom(type, rooms);
 		if (mRightChild != nullptr && !mIsWidthSplit)
@@ -161,7 +140,7 @@ bool pmg::Leaf::isConnect(Point begin, Point end,
 
 	return false;
 }
-bool pmg::Leaf::isValidHallpos(const Point & pos, SideType side, Rectangle area,
+bool pmg::Leaf::isValidHallpos(const Point & pos, Direction side, Rectangle area,
 	const std::vector<Rectangle>& rooms, const std::vector<Point>& otherHall, 
 	const std::vector<Point>& visited)
 {
@@ -169,13 +148,13 @@ bool pmg::Leaf::isValidHallpos(const Point & pos, SideType side, Rectangle area,
 
 	switch (side)
 	{
-	case SideType::Top:
-	case SideType::Bottom:
+	case Direction::Top:
+	case Direction::Bottom:
 		dx = 1;
 		dy = 0;
 		break;
-	case SideType::Left:
-	case SideType::Right:
+	case Direction::Left:
+	case Direction::Right:
 		dx = 0;
 		dy = 1;
 		break;

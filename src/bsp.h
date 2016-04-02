@@ -6,6 +6,7 @@
 #include <sstream>
 #include <algorithm>
 #include <iterator>
+#include "types.h"
 
 #ifndef OUT
 #define OUT
@@ -13,35 +14,6 @@
 
 namespace pmg
 {
-
-enum class SideType
-{
-	Top,
-	Right,
-	Bottom,
-	Left
-};
-
-enum class TileType
-{
-	Wall,
-	Hall,
-	Room,
-	Door
-};
-
-struct Point
-{
-	Point() : mX(0), mY(0) { }
-	Point(int x, int y) :mX(x), mY(y) {	}
-
-	bool operator ==(const Point& rhs) const { return mX == rhs.mX && mY == rhs.mY; }
-
-	bool operator !=(const Point& rhs) const { return !(*this == rhs); }
-
-	int mX;
-	int mY;
-};
 
 struct Rectangle
 {
@@ -189,13 +161,13 @@ public:
 		
 		if (mIsWidthSplit)
 		{
-			mLeftChild->getSideRoom(SideType::Right, leftCand);
-			mRightChild->getSideRoom(SideType::Left, rightCand);
+			mLeftChild->getSideRoom(Direction::Right, leftCand);
+			mRightChild->getSideRoom(Direction::Left, rightCand);
 		}
 		else
 		{
-			mLeftChild->getSideRoom(SideType::Bottom, leftCand);
-			mRightChild->getSideRoom(SideType::Top, rightCand);
+			mLeftChild->getSideRoom(Direction::Bottom, leftCand);
+			mRightChild->getSideRoom(Direction::Top, rightCand);
 		}
 
 		//이미 연결된 방이 하나라도 있다면 pass
@@ -237,7 +209,7 @@ public:
 	void fillData(int width, int height, std::vector<TileType>& data);
 
 private:
-	void getSideRoom(SideType type, OUT std::vector<Room*>& rooms);
+	void getSideRoom(Direction type, OUT std::vector<Room*>& rooms);
 	void getAllRooms(OUT std::vector<Rectangle>& rooms);
 	void getAllHallways(OUT std::vector<Point>& hallways);
 	Point getDoorNextPos(const Point& door, const Room& room);
@@ -271,7 +243,7 @@ private:
 		return isContainPoint(points, { x, y });
 	}
 
-	bool isValidHallpos(const Point& pos, SideType side,
+	bool isValidHallpos(const Point& pos, Direction side,
 		Rectangle area, const std::vector<Rectangle>& rooms,
 		const std::vector<Point>& otherHall, const std::vector<Point>& visited);
 
@@ -399,16 +371,16 @@ private:
 		Point right(begin.mX + 1, begin.mY);
 		Point down(begin.mX, begin.mY + 1);
 
-		if (isValidHallpos(left, SideType::Left, area, rooms, otherHall, visited))
+		if (isValidHallpos(left, Direction::Left, area, rooms, otherHall, visited))
 				cand.push_back(left);
 
-		if (isValidHallpos(up, SideType::Top, area, rooms, otherHall, visited))
+		if (isValidHallpos(up, Direction::Top, area, rooms, otherHall, visited))
 			cand.push_back(up);
 
-		if (isValidHallpos(right, SideType::Right, area, rooms, otherHall, visited))
+		if (isValidHallpos(right, Direction::Right, area, rooms, otherHall, visited))
 			cand.push_back(right);
 
-		if (isValidHallpos(down, SideType::Bottom, area, rooms, otherHall, visited))
+		if (isValidHallpos(down, Direction::Bottom, area, rooms, otherHall, visited))
 			cand.push_back(down);
 
 		std::sort(cand.begin(), cand.end(), [&end](const Point& lhs, const Point& rhs)
@@ -607,8 +579,6 @@ public:
 	void setSizeRange(float sizeRange) { mSizeRange = sizeRange; }
 
 	void setComplexity(int complexity) { mComplexity = complexity; }
-
-	void toTextFile(const std::string& path, std::function<char(TileType)> outputFunc) const;
 
 private:
 

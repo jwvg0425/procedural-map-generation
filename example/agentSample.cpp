@@ -2,15 +2,7 @@
 
 int main()
 {
-	pmg::BSP generator;
-
-	generator.setWidth(50);
-	generator.setHeight(50);
-	generator.setSplitNum(4);
-	generator.setSplitRange(0.1f);
-	generator.setSizeMid(0.95f);
-	generator.setSizeRange(0.05f);
-	generator.setComplexity(2);
+	pmg::Agent generator(50, 50, 80, 30, 0.05f, 0.05f);
 
 	generator.createMap();
 
