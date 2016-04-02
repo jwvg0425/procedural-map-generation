@@ -66,9 +66,11 @@ struct Room : Rectangle
 	Room() : Rectangle(), mIsVisited(false) { }
 	Room(int x, int y, int width, int height) : Rectangle(x, y, width, height), mIsVisited(false) { }
 	
-	void fillData(int width, std::vector<int>& data);
+	void fillData(int width, int height, std::vector<TileType>& data);
 	
 	bool isOnLine(int pos, SideType type) const;
+
+	bool isWallPos(int x, int y, int width, int height, const std::vector<Room*>& rooms);
 	
 	std::vector<Room*> getAllRooms();
 
@@ -235,7 +237,7 @@ public:
 		return mRightChild.get();
 	}
 
-	void fillData(int width, std::vector<int>& data);
+	void fillData(int width, int height, std::vector<TileType>& data);
 
 private:
 	void getSideRoom(SideType type, OUT std::vector<Room*>& rooms);
@@ -548,7 +550,7 @@ public:
 	BSP()
 		:mRoot(0, 0, mWidth, mHeight)
 	{
-		mData.resize(mWidth * mHeight, static_cast<int>(TileType::Wall));
+		mData.resize(mWidth * mHeight, TileType::Wall);
 	}
 
 	BSP(int width, int height, int splitNum, float splitRange, float sizeMid, float sizeRange, int complexity)
@@ -559,7 +561,7 @@ public:
 		mRoot(0, 0, width, height),
 		mData()
 	{
-		mData.resize(width * height, static_cast<int>(TileType::Wall));
+		mData.resize(width * height, TileType::Wall);
 	}
 
 	template<typename RandomGenerator = std::mt19937>
@@ -578,10 +580,10 @@ public:
 		split(generator);
 		mRoot.makeRoom(mSizeMid, mSizeRange, generator);
 		mRoot.merge(mComplexity, generator);
-		mRoot.fillData(mWidth, mData);
+		mRoot.fillData(mWidth, mHeight, mData);
 	}
 
-	int getData(int x, int y) const { return mData[x + y*mWidth]; }
+	TileType getData(int x, int y) const { return mData[x + y*mWidth]; }
 
 	int getWidth() const { return mWidth; }
 	int getHeight() const { return mHeight; }
@@ -592,14 +594,14 @@ public:
 	{
 		mWidth = width;
 		mRoot.reset(0, 0, mWidth, mHeight);
-		mData.resize(mWidth*mHeight, static_cast<int>(TileType::Wall));
+		mData.resize(mWidth*mHeight, TileType::Wall);
 	}
 
 	void setHeight(int height)
 	{
 		mHeight = height;
 		mRoot.reset(0, 0, mWidth, mHeight);
-		mData.resize(mWidth*mHeight, static_cast<int>(TileType::Wall));
+		mData.resize(mWidth*mHeight, TileType::Wall);
 	}
 
 	void setSplitNum(int splitNum) { mSplitNum = splitNum; }
@@ -609,7 +611,7 @@ public:
 
 	void setComplexity(int complexity) { mComplexity = complexity; }
 
-	void toTextFile(const std::string& path, std::function<char(int)> outputFunc) const;
+	void toTextFile(const std::string& path, std::function<char(TileType)> outputFunc) const;
 
 private:
 
@@ -650,7 +652,7 @@ private:
 	float mSizeRange = 0.2f;
 	Leaf mRoot;
 	bool mIsCreated = false;
-	std::vector<int> mData;
+	std::vector<TileType> mData;
 };
 
 }

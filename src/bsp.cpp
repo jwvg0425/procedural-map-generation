@@ -1,7 +1,7 @@
 #include "bsp.h"
 #include <fstream>
 
-void pmg::BSP::toTextFile(const std::string& path, std::function<char(int)> outputFunc) const
+void pmg::BSP::toTextFile(const std::string& path, std::function<char(TileType)> outputFunc) const
 {
 	std::ofstream stream(path);
 
@@ -21,22 +21,22 @@ void pmg::BSP::toTextFile(const std::string& path, std::function<char(int)> outp
 	stream.close();
 }
 
-void pmg::Leaf::fillData(int width, std::vector<int>& data)
+void pmg::Leaf::fillData(int width, int height, std::vector<TileType>& data)
 {
 	if (mLeftChild != nullptr)
-		mLeftChild->fillData(width, data);
+		mLeftChild->fillData(width, height, data);
 
 	if (mRightChild != nullptr)
-		mRightChild->fillData(width, data);
+		mRightChild->fillData(width, height, data);
 
 	for (auto& p : mHallways)
 	{
-		data[p.mX + p.mY * width] = static_cast<int>(TileType::Hall);
+		data[p.mX + p.mY * width] = TileType::Hall;
 	}
 
 	if (!hasChild())
 	{
-		mRoom.fillData(width, data);
+		mRoom.fillData(width, height, data);
 	}
 }
 
@@ -231,7 +231,7 @@ bool pmg::Rectangle::isOverlap(const Rectangle & other) const
 		getBottom() < other.mY || mY > other.getBottom());
 }
 
-void pmg::Room::fillData(int width, std::vector<int>& data)
+void pmg::Room::fillData(int width, int height, std::vector<TileType>& data)
 {
 	if (mIsVisited)
 		return;
@@ -246,68 +246,20 @@ void pmg::Room::fillData(int width, std::vector<int>& data)
 		{
 			for (int x = room.mX; x < room.getRight() + 1; x++)
 			{
-				TileType type;
-
-				if (x == room.mX)
+				if (isWallPos(x, y, width, height, allRooms))
 				{
-					if (room.isOnLine(y, SideType::Left))
-					{
-						type = TileType::Room;
-					}
-					else
-					{
-						type = TileType::Wall;
-					}
-				}
-				else if (x == room.getRight())
-				{
-					if (room.isOnLine(y, SideType::Right))
-					{
-						type = TileType::Room;
-					}
-					else
-					{
-						type = TileType::Wall;
-					}
-				}
-				else if (y == room.mY)
-				{
-					if (room.isOnLine(x, SideType::Top))
-					{
-						type = TileType::Room;
-					}
-					else
-					{
-						type = TileType::Wall;
-					}
-				}
-				else if (y == room.getBottom())
-				{
-					if (room.isOnLine(x, SideType::Bottom))
-					{
-						type = TileType::Room;
-					}
-					else
-					{
-						type = TileType::Wall;
-					}
+					data[x + y*width] = TileType::Wall;
 				}
 				else
 				{
-					type = TileType::Room;
+					data[x + y * width] = TileType::Room;
 				}
-
-				for (auto& d : room.mDoors)
-				{
-					if (x == d.mX && y == d.mY)
-					{
-						type = TileType::Door;
-						break;
-					}
-				}
-
-				data[x + y * width] = static_cast<int>(type);
 			}
+		}
+
+		for (auto& door : room.mDoors)
+		{
+			data[door.mX + door.mY * width] = TileType::Door;
 		}
 	}
 }
@@ -369,6 +321,35 @@ bool pmg::Room::isOnLine(int pos, SideType type) const
 
 		if (pos >= first && pos <= last)
 			return true;
+	}
+
+	return false;
+}
+
+bool pmg::Room::isWallPos(int x, int y, int width, int height, const std::vector<Room*>& rooms)
+{
+	Point adjs[8] = 
+	{ 
+		{ x + 1, y },
+		{ x + 1, y + 1 },
+		{ x, y + 1 },
+		{ x - 1, y + 1 },
+		{ x - 1, y },
+		{ x - 1, y - 1 },
+		{ x, y - 1 },
+		{ x + 1,y - 1 } 
+	};
+
+	for (int i = 0; i < 8; i++)
+	{
+		const Point& adj = adjs[i];
+		if (std::all_of(rooms.begin(), rooms.end(), [&adj](const Room* room)
+		{
+			return !room->isContain(adj);
+		}))
+		{
+			return true;
+		}
 	}
 
 	return false;
