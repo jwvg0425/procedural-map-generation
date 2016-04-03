@@ -4,6 +4,7 @@
 
 #include "bsp.h"
 #include "agent.h"
+#include "cellularAutomata.h"
 
 namespace pmg
 {
@@ -12,7 +13,9 @@ void toTextFile(const Generator& generator,
 	const std::string& path, std::function<char(TileType)> outputFunc)
 {
 	static_assert(std::is_same<Generator, BSP>::value ||
-				  std::is_same<Generator, Agent>::value,"Generator must be BSP or Agent");
+				  std::is_same<Generator, Agent>::value ||
+				  std::is_same<Generator, CellularAutomata>::value,
+		"Generator must be BSP or Agent or CellularAutomata");
 
 	std::ofstream stream(path);
 
